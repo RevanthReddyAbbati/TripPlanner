@@ -1,5 +1,6 @@
 import type { Trip } from '../types';
 import { slug } from './format';
+import { normalizeTrip } from '../engine/people';
 
 // Share links carry the whole trip, compressed, in the URL hash. Nothing is uploaded anywhere.
 
@@ -30,8 +31,8 @@ export async function decodeTrip(data: string): Promise<Trip> {
   const bytes = fromB64Url(data.slice(1));
   const raw = kind === 'z' ? await pipe(bytes, new DecompressionStream('deflate-raw')) : bytes;
   const trip = JSON.parse(new TextDecoder().decode(raw)) as Trip;
-  if (!trip || trip.version !== 1 || !Array.isArray(trip.days)) throw new Error('This link does not contain a valid trip.');
-  return trip;
+  if (!trip || (trip.version !== 1 && trip.version !== 2) || !Array.isArray(trip.days)) throw new Error('This link does not contain a valid trip.');
+  return normalizeTrip(trip);
 }
 
 export function shareUrl(encoded: string): string {

@@ -50,21 +50,16 @@ export function OptionCards<T extends string>({
           <label
             key={o.value}
             className={clsx(
-              'flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors',
-              on ? 'border-brand bg-brand-soft' : 'border-line bg-surface hover:bg-sunken',
+              'relative flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border px-3.5 py-3 transition-[border-color,background,box-shadow]',
+              on ? 'border-brand bg-brand-soft/60 shadow-[0_0_0_1px_rgb(var(--brand))]' : 'border-line-strong bg-surface hover:border-muted/50',
             )}
           >
-            <input
-              type="radio"
-              name={name}
-              id={`${name}-${o.value}`}
-              className="sr-only"
-              checked={on}
-              onChange={() => onChange(o.value)}
-            />
-            {o.icon && <span className={clsx('mt-0.5', on ? 'text-brand' : 'text-muted')}>{o.icon}</span>}
+            <input type="radio" name={name} id={`${name}-${o.value}`} className="sr-only" checked={on} onChange={() => onChange(o.value)} />
+            {o.icon && (
+              <span className={clsx('mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md', on ? 'bg-brand text-brand-ink' : 'bg-sunken text-muted')}>{o.icon}</span>
+            )}
             <span className="min-w-0">
-              <span className="block text-[14px] font-medium">{o.label}</span>
+              <span className="block text-[13.5px] font-medium">{o.label}</span>
               {o.detail && <span className="block text-[12.5px] text-muted">{o.detail}</span>}
             </span>
           </label>
@@ -86,7 +81,7 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex flex-wrap rounded-lg border border-line bg-sunken p-0.5">
+    <div role="radiogroup" aria-label={label} className="inline-flex max-w-full flex-wrap rounded-lg border border-line-strong bg-sunken p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
@@ -95,7 +90,7 @@ export function Segmented<T extends string>({
           aria-checked={o.value === value}
           onClick={() => onChange(o.value)}
           className={clsx(
-            'rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
+            'rounded-md px-3 py-1 text-[13px] font-medium transition-colors',
             o.value === value ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink',
           )}
         >
@@ -113,8 +108,8 @@ export function Chip({ on, onClick, children }: { on: boolean; onClick: () => vo
       aria-pressed={on}
       onClick={onClick}
       className={clsx(
-        'rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors',
-        on ? 'border-brand bg-brand text-brand-ink' : 'border-line bg-surface text-ink hover:bg-sunken',
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors',
+        on ? 'border-brand bg-brand-soft text-brand' : 'border-line-strong bg-surface text-ink-2 hover:bg-sunken',
       )}
     >
       {children}
@@ -123,27 +118,30 @@ export function Chip({ on, onClick, children }: { on: boolean; onClick: () => vo
 }
 
 export function Stepper({ value, min, max, onChange, id, suffix }: { value: number; min: number; max: number; onChange: (n: number) => void; id: string; suffix?: string }) {
+  const btn = 'grid h-9 w-9 place-items-center text-[16px] text-ink-2 hover:bg-sunken disabled:opacity-40';
   return (
     <div className="flex items-center gap-2">
-      <button type="button" aria-label="Decrease" className="h-10 w-10 rounded-lg border border-line bg-surface text-lg hover:bg-sunken disabled:opacity-40" disabled={value <= min} onClick={() => onChange(value - 1)}>
-        −
-      </button>
-      <input
-        id={id}
-        type="number"
-        inputMode="numeric"
-        className="input w-20 text-center tabular"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => {
-          const n = Number(e.target.value);
-          if (!Number.isNaN(n)) onChange(Math.max(min, Math.min(max, n)));
-        }}
-      />
-      <button type="button" aria-label="Increase" className="h-10 w-10 rounded-lg border border-line bg-surface text-lg hover:bg-sunken disabled:opacity-40" disabled={value >= max} onClick={() => onChange(value + 1)}>
-        +
-      </button>
+      <div className="inline-flex overflow-hidden rounded-lg border border-line-strong bg-surface">
+        <button type="button" aria-label="Decrease" className={btn} disabled={value <= min} onClick={() => onChange(value - 1)}>
+          −
+        </button>
+        <input
+          id={id}
+          type="number"
+          inputMode="numeric"
+          className="h-9 w-14 border-x border-line bg-transparent text-center text-[14px] font-medium tabular outline-none"
+          value={value}
+          min={min}
+          max={max}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (!Number.isNaN(n)) onChange(Math.max(min, Math.min(max, n)));
+          }}
+        />
+        <button type="button" aria-label="Increase" className={btn} disabled={value >= max} onClick={() => onChange(value + 1)}>
+          +
+        </button>
+      </div>
       {suffix && <span className="text-[13px] text-muted">{suffix}</span>}
     </div>
   );
@@ -153,12 +151,12 @@ export function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'bran
   return (
     <span
       className={clsx(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold',
-        tone === 'neutral' && 'bg-sunken text-muted',
-        tone === 'brand' && 'bg-brand-soft text-brand',
-        tone === 'ok' && 'bg-ok/15 text-ok',
-        tone === 'warn' && 'bg-warn/15 text-warn',
-        tone === 'bad' && 'bg-bad/15 text-bad',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11.5px] font-medium ring-1 ring-inset',
+        tone === 'neutral' && 'bg-sunken text-ink-2 ring-line-strong',
+        tone === 'brand' && 'bg-brand-soft text-brand ring-brand/20',
+        tone === 'ok' && 'bg-ok-soft text-ok ring-ok/20',
+        tone === 'warn' && 'bg-warn-soft text-warn ring-warn/25',
+        tone === 'bad' && 'bg-bad-soft text-bad ring-bad/20',
       )}
     >
       {children}

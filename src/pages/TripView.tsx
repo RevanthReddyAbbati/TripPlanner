@@ -1,7 +1,11 @@
 import { useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { CalendarPlus, Copy, FileJson, Link2, MoreHorizontal, Printer, Trash2 } from 'lucide-react';
-import type { TripStatus } from '../types';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { CalendarDays, CalendarPlus, ChevronRight, Copy, FileJson, Link2, MoreHorizontal, Plus, Printer, Route, Trash2 } from 'lucide-react';
+import type { Trip, TripStatus } from '../types';
+import { AvatarStack } from '../components/ui/Kit';
+import { Badge } from '../components/ui/Fields';
+import { tripEndDate, tripPhase } from '../engine/expenses';
+import { fmtDate } from '../lib/time';
 import { useTrip, useTrips } from '../store/trips';
 import { Page } from '../components/layout/AppShell';
 import { TripWorkspace } from '../components/trip/TripWorkspace';
@@ -9,7 +13,14 @@ import { Button, ButtonLink } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import { encodeTrip, exportICS, exportJSON, shareUrl } from '../lib/share';
-import { STATUS_OPTIONS } from './Dashboard';
+import { STATUS_OPTIONS } from '../components/trip/status';
+
+function PhaseBadge({ trip }: { trip: Trip }) {
+  const p = tripPhase(trip);
+  if (p.kind === 'live') return <Badge tone="ok">● Live · Day {p.dayIndex + 1} of {trip.days.length}</Badge>;
+  if (p.kind === 'upcoming') return <Badge tone="brand">Starts in {p.daysToGo} day{p.daysToGo === 1 ? '' : 's'}</Badge>;
+  return <Badge>Completed</Badge>;
+}
 
 export default function TripView() {
   const { id } = useParams();
@@ -20,6 +31,7 @@ export default function TripView() {
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareLink, setShareLink] = useState('');
+  const [, setParams] = useSearchParams();
 
   if (!trip || !id) {
     return (
@@ -48,21 +60,41 @@ export default function TripView() {
 
   return (
     <Page wide>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+      <nav aria-label="Breadcrumb" className="no-print mb-2 flex items-center gap-1 text-[12.5px] text-muted">
+        <Link to="/app/trips" className="hover:text-ink">
+          Trips
+        </Link>
+        <ChevronRight className="h-3.5 w-3.5" />
+        <span className="truncate text-ink-2">{trip.input.name}</span>
+      </nav>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-[min(100%,26rem)] flex-1">
-          <div className="eyebrow mb-1">{[trip.input.origin.name, ...trip.input.destinations.map((d) => d.name)].join(' → ')}</div>
           <input
             aria-label="Trip name"
-            className="w-full rounded-md bg-transparent font-display text-[26px] font-bold leading-tight outline-none ring-brand/30 hover:bg-sunken focus:bg-surface focus:ring-2 sm:text-[30px]"
+            className="-ml-1.5 w-full rounded-md bg-transparent px-1.5 text-[24px] font-semibold leading-tight tracking-tight outline-none ring-brand/30 hover:bg-sunken focus:bg-surface focus:ring-2 sm:text-[26px]"
             defaultValue={trip.input.name}
             key={trip.id}
             onBlur={(e) => e.target.value.trim() && e.target.value !== trip.input.name && s.rename(id, e.target.value.trim())}
           />
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted">
+            <PhaseBadge trip={trip} />
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays className="h-4 w-4" /> {fmtDate(trip.input.startDate)} – {fmtDate(tripEndDate(trip))}
+            </span>
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Route className="h-4 w-4 shrink-0" />
+              <span className="truncate">{[trip.input.origin.name, ...trip.input.destinations.map((d) => d.name)].join(' → ')}</span>
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <AvatarStack people={trip.travelers} size={22} />
+              {trip.travelers.length} travellers
+            </span>
+          </div>
         </div>
         <div className="no-print flex flex-wrap items-center gap-2">
           <select
             aria-label="Trip status"
-            className="input h-10 w-auto py-0"
+            className="input w-auto"
             value={trip.status}
             onChange={(e) => s.setStatus(id, e.target.value as TripStatus)}
           >
@@ -74,6 +106,9 @@ export default function TripView() {
           </select>
           <Button variant="secondary" icon={<Link2 className="h-4 w-4" />} onClick={share}>
             Share
+          </Button>
+          <Button icon={<Plus className="h-4 w-4" />} onClick={() => setParams({ tab: 'expenses', add: '1' }, { replace: true })}>
+            Add expense
           </Button>
           <div className="relative">
             <Button variant="secondary" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} icon={<MoreHorizontal className="h-4 w-4" />}>
@@ -129,6 +164,13 @@ export default function TripView() {
           regenerate: (patch) => s.regenerate(id, patch),
           updateInput: (patch) => s.updateInput(id, patch),
           setNotes: (n) => s.setNotes(id, n),
+          updateTraveler: (tid, patch) => s.updateTraveler(id, tid, patch),
+          addExpense: (e) => s.addExpense(id, e),
+          updateExpense: (eid, patch) => s.updateExpense(id, eid, patch),
+          removeExpense: (eid) => s.removeExpense(id, eid),
+          addBooking: (b) => s.addBooking(id, b),
+          updateBooking: (bid, patch) => s.updateBooking(id, bid, patch),
+          removeBooking: (bid) => s.removeBooking(id, bid),
         }}
       />
 

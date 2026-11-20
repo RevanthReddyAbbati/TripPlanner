@@ -37,7 +37,9 @@ export default function Settings() {
 
   return (
     <Page>
-      <PageHeader eyebrow="Workspace" title="Settings" />
+      <PageHeader title="Settings" crumbs={[{ label: 'Workspace' }, { label: 'Settings' }]}>
+        Profile, appearance, defaults for new trips, and your data.
+      </PageHeader>
       <div className="space-y-6">
         <Section title="Profile" desc="Shown in the sidebar and on shared plans.">
           <div className="grid gap-4 sm:grid-cols-2">

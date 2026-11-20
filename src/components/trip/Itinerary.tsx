@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, BedDouble, BusFront, Car, Coffee, Home, LogOut, MapPin, Moon, Plane, Plus, Star,
+  AlertTriangle, ArrowDown, ArrowUp, BedDouble, BusFront, Car, Coffee, Home, LogOut, MapPin, Moon, Plane, Plus, ReceiptIndianRupee, Star,
   TrainFront, Trash2, UtensilsCrossed, Bike,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -22,6 +22,8 @@ interface Props {
   readOnly?: boolean;
   onChangeDay?: (day: DayPlan) => void;
   onAddPlace?: (dayIndex: number) => void;
+  /** Log an expense against a stop (prefilled from its cost). */
+  onLogExpense?: (dayIndex: number, stop: Stop) => void;
 }
 
 export function DayTabs({ trip, day, onDay }: Pick<Props, 'trip' | 'day' | 'onDay'>) {
@@ -42,8 +44,8 @@ function TabBtn({ on, onClick, color, title, sub }: { on: boolean; onClick: () =
       aria-selected={on}
       onClick={onClick}
       className={clsx(
-        'flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] transition-colors',
-        on ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:bg-sunken',
+        'flex shrink-0 items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] transition-colors',
+        on ? 'border-brand bg-brand-soft text-ink shadow-[0_0_0_1px_rgb(var(--brand))]' : 'border-line-strong bg-surface hover:bg-sunken',
       )}
     >
       <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
@@ -53,7 +55,7 @@ function TabBtn({ on, onClick, color, title, sub }: { on: boolean; onClick: () =
   );
 }
 
-export function Itinerary({ trip, day, activeStopId, onActivate, readOnly, onChangeDay, onAddPlace }: Props) {
+export function Itinerary({ trip, day, activeStopId, onActivate, readOnly, onChangeDay, onAddPlace, onLogExpense }: Props) {
   const places = useMemo(() => {
     const m = new Map<string, Place>();
     trip.input.destinations.forEach((d) => d.places.forEach((p) => m.set(p.id, p)));
@@ -73,6 +75,7 @@ export function Itinerary({ trip, day, activeStopId, onActivate, readOnly, onCha
           readOnly={readOnly}
           onChange={onChangeDay}
           onAddPlace={onAddPlace}
+          onLogExpense={onLogExpense}
         />
       ))}
     </div>
@@ -80,12 +83,15 @@ export function Itinerary({ trip, day, activeStopId, onActivate, readOnly, onCha
 }
 
 function DayCard({
-  trip, day, places, activeStopId, onActivate, readOnly, onChange, onAddPlace,
+  trip, day, places, activeStopId, onActivate, readOnly, onChange, onAddPlace, onLogExpense,
 }: {
   trip: Trip; day: DayPlan; places: Map<string, Place>; activeStopId?: string; onActivate: Props['onActivate'];
-  readOnly?: boolean; onChange?: (d: DayPlan) => void; onAddPlace?: (i: number) => void;
+  readOnly?: boolean; onChange?: (d: DayPlan) => void; onAddPlace?: (i: number) => void; onLogExpense?: Props['onLogExpense'];
 }) {
   const bad = conflicts(day, places);
+  const logged = new Map<string, number>();
+  (trip.expenses ?? []).forEach((e) => e.stopId && logged.set(e.stopId, (logged.get(e.stopId) ?? 0) + e.amount));
+  const daySpent = (trip.expenses ?? []).filter((e) => e.date === day.date).reduce((a, e) => a + e.amount, 0);
   const color = dayColor(day.index);
   const spend = day.stops.filter((s) => s.kind === 'visit' || s.kind === 'custom').reduce((a, s) => a + (s.optional ? 0 : s.cost), 0);
   const night = day.night;
@@ -101,23 +107,30 @@ function DayCard({
   return (
     <section className="card overflow-hidden" aria-labelledby={`day-${day.index}`}>
       <header className="flex items-start gap-3 border-b border-line px-4 py-3.5 sm:px-5">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-[15px] font-bold text-white" style={{ background: color }}>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[14px] font-semibold text-white" style={{ background: color }}>
           {day.index + 1}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="eyebrow">{fmtDay(day.date)}</div>
-          <h3 id={`day-${day.index}`} className="truncate text-[17px] font-semibold">
+          <div className="text-[12px] font-medium text-muted">
+            Day {day.index + 1} · {fmtDay(day.date)}
+          </div>
+          <h3 id={`day-${day.index}`} className="truncate text-[15.5px] font-semibold">
             {day.title}
           </h3>
-          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] text-muted">
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] text-muted">
             <span className="inline-flex items-center gap-1">
               <Moon className="h-3.5 w-3.5" /> {nightText}
             </span>
             {spend > 0 && <span>Entries {inr(spend)} per person</span>}
+            {daySpent > 0 && (
+              <span className="inline-flex items-center gap-1 text-ink-2">
+                <ReceiptIndianRupee className="h-3.5 w-3.5" /> {inr(daySpent)} spent
+              </span>
+            )}
           </div>
         </div>
         {!readOnly && onAddPlace && (
-          <button onClick={() => onAddPlace(day.index)} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-[13px] font-medium hover:bg-sunken">
+          <button onClick={() => onAddPlace(day.index)} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-line-strong px-2.5 text-[13px] font-medium shadow-card hover:bg-sunken">
             <Plus className="h-4 w-4" /> Add place
           </button>
         )}
@@ -136,7 +149,7 @@ function DayCard({
                 key={s.id}
                 className={clsx('group grid grid-cols-[72px_minmax(0,1fr)] gap-3 px-4 py-3 transition-colors sm:grid-cols-[92px_minmax(0,1fr)] sm:px-5', active && 'bg-brand-soft')}
               >
-                <div className="pt-0.5 font-mono text-[12px] leading-tight text-muted tabular">
+                <div className="pt-0.5 text-[12.5px] font-medium leading-tight text-ink-2 tabular">
                   {fmtTime(s.start)}
                   <div className="mt-0.5 text-[11px] opacity-80">{fmtDuration(s.end - s.start)}</div>
                 </div>
@@ -154,7 +167,7 @@ function DayCard({
                       </button>
                       {s.note && <p className="text-[13px] text-muted">{s.note}</p>}
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px]">
-                        {s.cost > 0 && <span className="rounded-md border border-line bg-sunken px-1.5 py-0.5 font-mono tabular">{inr(s.cost)}</span>}
+                        {s.cost > 0 && <span className="rounded-md bg-sunken px-1.5 py-0.5 font-medium text-ink-2 tabular">{inr(s.cost)} pp</span>}
                         {s.optional && <Badge tone="warn">Optional</Badge>}
                         {conflict && (
                           <Badge tone="bad">
@@ -165,6 +178,19 @@ function DayCard({
                           <a className="text-brand hover:underline" href={mapsLink(s.lat!, s.lon!, s.title)} target="_blank" rel="noopener noreferrer">
                             Google Maps ↗
                           </a>
+                        )}
+                        {logged.has(s.id) ? (
+                          <Badge tone="ok">
+                            <ReceiptIndianRupee className="h-3 w-3" /> {inr(logged.get(s.id)!)} logged
+                          </Badge>
+                        ) : (
+                          !readOnly &&
+                          onLogExpense &&
+                          (s.kind === 'visit' || s.kind === 'custom' || s.kind === 'meal' || s.kind === 'travel') && (
+                            <button type="button" onClick={() => onLogExpense(day.index, s)} className="inline-flex items-center gap-1 font-medium text-muted hover:text-brand">
+                              <ReceiptIndianRupee className="h-3.5 w-3.5" /> Log expense
+                            </button>
+                          )
                         )}
                       </div>
                     </div>

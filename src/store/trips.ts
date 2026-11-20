@@ -2,10 +2,12 @@
 // a server-backed repository (Supabase, Firebase or a REST API) plugs in for multi-user sync.
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { ChecklistItem, DayPlan, Place, Trip, TripInput, TripStatus } from '../types';
+import type { Booking, ChecklistItem, DayPlan, Expense, Place, Traveler, Trip, TripInput, TripStatus } from '../types';
 import { generateTrip } from '../engine/planner';
 import { buildChecklist } from '../engine/checklist';
+import { normalizeTrip } from '../engine/people';
 import { uid } from '../lib/format';
+import { useSettings } from './settings';
 
 interface TripState {
   trips: Record<string, Trip>;
@@ -25,10 +27,21 @@ interface TripState {
   addCheck: (id: string, label: string) => void;
   removeCheck: (id: string, itemId: string) => void;
   resetChecklist: (id: string) => void;
+  // Travellers
+  updateTraveler: (id: string, travelerId: string, patch: Partial<Traveler>) => void;
+  // Expenses
+  addExpense: (id: string, e: Omit<Expense, 'id' | 'createdAt'>) => string;
+  updateExpense: (id: string, expenseId: string, patch: Partial<Expense>) => void;
+  removeExpense: (id: string, expenseId: string) => void;
+  // Bookings
+  addBooking: (id: string, b: Omit<Booking, 'id'>) => string;
+  updateBooking: (id: string, bookingId: string, patch: Partial<Booking>) => void;
+  removeBooking: (id: string, bookingId: string) => void;
   clearAll: () => void;
 }
 
 const touch = (t: Trip): Trip => ({ ...t, updatedAt: new Date().toISOString() });
+const firstName = () => useSettings.getState().displayName || 'You';
 
 export const useTrips = create<TripState>()(
   persist(
@@ -40,14 +53,14 @@ export const useTrips = create<TripState>()(
         trips: {},
         order: [],
         create: (input) => {
-          const trip = generateTrip(input);
+          const trip = generateTrip(input, undefined, firstName());
           set((s) => ({ trips: { ...s.trips, [trip.id]: trip }, order: [trip.id, ...s.order] }));
           return trip.id;
         },
         regenerate: (id, patch) => {
           const t = get().trips[id];
           if (!t) return;
-          const next = generateTrip({ ...t.input, ...patch }, t);
+          const next = generateTrip({ ...t.input, ...patch }, t, firstName());
           set((s) => ({ trips: { ...s.trips, [id]: next } }));
         },
         remove: (id) =>
@@ -60,14 +73,14 @@ export const useTrips = create<TripState>()(
           const t = get().trips[id];
           if (!t) return;
           const now = new Date().toISOString();
-          const copy: Trip = structuredClone({ ...t, id: uid('trip_'), createdAt: now, updatedAt: now, status: 'draft' as const });
+          const copy: Trip = structuredClone({ ...t, id: uid('trip_'), createdAt: now, updatedAt: now, status: 'draft' as const, expenses: [], bookings: [] });
           copy.input.name = `${t.input.name} (copy)`;
           set((s) => ({ trips: { ...s.trips, [copy.id]: copy }, order: [copy.id, ...s.order] }));
           return copy.id;
         },
         importTrip: (trip) => {
           const now = new Date().toISOString();
-          const copy: Trip = { ...trip, id: uid('trip_'), createdAt: now, updatedAt: now };
+          const copy: Trip = normalizeTrip({ ...trip, id: uid('trip_'), createdAt: now, updatedAt: now }, firstName());
           set((s) => ({ trips: { ...s.trips, [copy.id]: copy }, order: [copy.id, ...s.order] }));
           return copy.id;
         },
@@ -95,17 +108,58 @@ export const useTrips = create<TripState>()(
           })),
         removeCheck: (id, itemId) => patchTrip(id, (t) => ({ ...t, checklist: t.checklist.filter((c) => c.id !== itemId) })),
         resetChecklist: (id) => patchTrip(id, (t) => ({ ...t, checklist: buildChecklist(t) })),
+
+        updateTraveler: (id, travelerId, patch) =>
+          patchTrip(id, (t) => ({ ...t, travelers: t.travelers.map((p) => (p.id === travelerId ? { ...p, ...patch } : p)) })),
+
+        addExpense: (id, e) => {
+          const exp: Expense = { ...e, id: uid('x_'), createdAt: new Date().toISOString() };
+          patchTrip(id, (t) => ({ ...t, expenses: [...t.expenses, exp] }));
+          return exp.id;
+        },
+        updateExpense: (id, expenseId, patch) =>
+          patchTrip(id, (t) => ({ ...t, expenses: t.expenses.map((x) => (x.id === expenseId ? { ...x, ...patch } : x)) })),
+        removeExpense: (id, expenseId) =>
+          patchTrip(id, (t) => ({
+            ...t,
+            expenses: t.expenses.filter((x) => x.id !== expenseId),
+            bookings: t.bookings.map((b) => (b.expenseId === expenseId ? { ...b, expenseId: undefined } : b)),
+          })),
+
+        addBooking: (id, b) => {
+          const bk: Booking = { ...b, id: uid('b_') };
+          patchTrip(id, (t) => ({ ...t, bookings: [...t.bookings, bk] }));
+          return bk.id;
+        },
+        updateBooking: (id, bookingId, patch) =>
+          patchTrip(id, (t) => ({ ...t, bookings: t.bookings.map((x) => (x.id === bookingId ? { ...x, ...patch } : x)) })),
+        removeBooking: (id, bookingId) => patchTrip(id, (t) => ({ ...t, bookings: t.bookings.filter((x) => x.id !== bookingId) })),
+
         clearAll: () => set({ trips: {}, order: [] }),
       };
     },
     {
       name: 'itinera-trips',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persisted, version) => {
+        const s = persisted as { trips: Record<string, Trip>; order: string[] };
+        if (version < 2 && s?.trips) {
+          Object.keys(s.trips).forEach((k) => (s.trips[k] = normalizeTrip(s.trips[k])));
+        }
+        return s as unknown as TripState;
+      },
     },
   ),
 );
 
 export function useTrip(id: string | undefined): Trip | undefined {
   return useTrips((s) => (id ? s.trips[id] : undefined));
+}
+
+/** All trips, newest first. */
+export function useAllTrips(): Trip[] {
+  const trips = useTrips((s) => s.trips);
+  const order = useTrips((s) => s.order);
+  return order.map((id) => trips[id]).filter(Boolean);
 }

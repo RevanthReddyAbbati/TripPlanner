@@ -4,6 +4,11 @@ import { slug } from '../lib/format';
 import { LOCAL, MODES } from './rates';
 import { modeLabel } from './transport';
 
+/** "AC sleeper bus" stays as is; "Train, sleeper class" becomes "train, sleeper class". */
+function lowerFirst(s: string): string {
+  return /^[A-Z]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
+}
+
 /** Build a checklist from the plan: tickets per leg, stays per destination, documents, money and packing. */
 export function buildChecklist(trip: Trip): ChecklistItem[] {
   const { input, legs, days } = trip;
@@ -13,7 +18,7 @@ export function buildChecklist(trip: Trip): ChecklistItem[] {
 
   legs.forEach((l) => {
     if (!(l.mode in MODES)) {
-      add(`Arrange ${modeLabel(l.mode).toLowerCase()} from ${l.from.name} to ${l.to.name}`, 'booking');
+      add(`Arrange ${lowerFirst(modeLabel(l.mode))} from ${l.from.name} to ${l.to.name}`, 'booking');
       return;
     }
     const dayIdx = Math.floor(l.departAbs / 1440);
@@ -24,7 +29,7 @@ export function buildChecklist(trip: Trip): ChecklistItem[] {
       return;
     }
     add(
-      `Book ${info.label.toLowerCase()}: ${l.from.name} to ${l.to.name}`,
+      `Book ${lowerFirst(info.label)}: ${l.from.name} to ${l.to.name}`,
       'booking',
       `${date ? fmtDay(date) + ', ' : ''}leaving around ${fmtTime(l.departAbs - dayIdx * 1440, false)}. ${info.bookingHint}.`,
     );

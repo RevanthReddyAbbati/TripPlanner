@@ -169,6 +169,64 @@ export interface ChecklistItem {
 
 export type TripStatus = 'draft' | 'planned' | 'booked' | 'completed';
 
+export interface Traveler {
+  id: string;
+  name: string;
+  /** Hex color for avatars and charts. */
+  color: string;
+}
+
+export type ExpenseCategory = 'transport' | 'stay' | 'food' | 'local' | 'activities' | 'shopping' | 'other';
+export type PaymentMethod = 'cash' | 'upi' | 'card' | 'other';
+
+/** Money actually spent, logged during or after the trip. Amounts are the full amount paid, in INR. */
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  /** ISO date. */
+  date: string;
+  /** "HH:MM", optional. */
+  time?: string;
+  /** Traveler id who paid. */
+  paidBy: string;
+  /** Traveler ids sharing the cost equally. */
+  splitWith: string[];
+  method: PaymentMethod;
+  note?: string;
+  /** Itinerary stop or booking this expense came from. */
+  stopId?: string;
+  bookingId?: string;
+  createdAt: string;
+}
+
+export type BookingType = 'transport' | 'stay' | 'activity' | 'other';
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
+
+export interface Booking {
+  id: string;
+  type: BookingType;
+  title: string;
+  provider?: string;
+  /** PNR, confirmation number, etc. */
+  reference?: string;
+  /** ISO date of check-in / departure. */
+  date: string;
+  time?: string;
+  /** ISO date of check-out / arrival. */
+  endDate?: string;
+  /** Total for the group, INR. */
+  amount: number;
+  status: BookingStatus;
+  /** Link back to the plan item it books. */
+  legId?: string;
+  destinationId?: string;
+  notes?: string;
+  /** Expense created from this booking, if any. */
+  expenseId?: string;
+}
+
 export interface Trip {
   id: string;
   createdAt: string;
@@ -182,6 +240,9 @@ export interface Trip {
   warnings: string[];
   /** Places available at each destination that were not scheduled. */
   unscheduled: Record<string, string[]>;
+  travelers: Traveler[];
+  expenses: Expense[];
+  bookings: Booking[];
   /** Schema version for migrations. */
-  version: 1;
+  version: 1 | 2;
 }

@@ -2,21 +2,23 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Link, type LinkProps } from 'react-router-dom';
 import clsx from 'clsx';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
-type Size = 'sm' | 'md' | 'lg';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle';
+type Size = 'xs' | 'sm' | 'md' | 'lg';
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap';
+  'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-[background,color,box-shadow,border-color] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap select-none';
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand text-brand-ink hover:bg-brand/90 shadow-card',
-  secondary: 'bg-surface text-ink border border-line hover:bg-sunken',
-  ghost: 'text-ink hover:bg-sunken',
+  primary: 'bg-brand text-brand-ink hover:bg-brand/90 shadow-[0_1px_2px_rgb(var(--shadow)/0.12),inset_0_1px_0_rgb(255_255_255/0.12)]',
+  secondary: 'bg-surface text-ink border border-line-strong hover:bg-sunken shadow-card',
+  ghost: 'text-ink-2 hover:bg-sunken hover:text-ink',
+  subtle: 'bg-brand-soft text-brand hover:bg-brand/15',
   danger: 'bg-bad text-white hover:bg-bad/90',
 };
 const sizes: Record<Size, string> = {
+  xs: 'h-7 px-2 text-[12.5px]',
   sm: 'h-8 px-3 text-[13px]',
-  md: 'h-10 px-4 text-[14px]',
-  lg: 'h-12 px-6 text-[15px]',
+  md: 'h-9 px-3.5 text-[13.5px]',
+  lg: 'h-11 px-5 text-[15px]',
 };
 
 export function buttonClass(variant: Variant = 'primary', size: Size = 'md', extra?: string) {
@@ -69,7 +71,7 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={clsx(
-        'inline-grid h-8 w-8 place-items-center rounded-md text-muted transition-colors hover:bg-sunken hover:text-ink disabled:opacity-40 disabled:pointer-events-none',
+        'inline-grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-sunken hover:text-ink disabled:pointer-events-none disabled:opacity-40',
         className,
       )}
       {...rest}

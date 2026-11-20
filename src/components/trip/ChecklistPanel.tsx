@@ -20,14 +20,19 @@ export function ChecklistPanel({
   const done = trip.checklist.filter((c) => c.done).length;
   const pct = trip.checklist.length ? Math.round((done / trip.checklist.length) * 100) : 0;
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="space-y-4">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="space-y-6">
         {CATS.map((cat) => {
           const items = trip.checklist.filter((c) => c.category === cat.key);
           if (!items.length) return null;
           return (
             <section key={cat.key} className="card overflow-hidden">
-              <h3 className="border-b border-line px-5 py-3 text-[15px] font-semibold">{cat.label}</h3>
+              <h3 className="card-header card-title">
+                {cat.label}
+                <span className="text-[12px] font-normal text-muted tabular">
+                  {items.filter((c) => c.done).length}/{items.length}
+                </span>
+              </h3>
               <ul className="divide-y divide-line">
                 {items.map((c) => (
                   <li key={c.id} className="flex items-start gap-3 px-5 py-3">
@@ -57,8 +62,8 @@ export function ChecklistPanel({
       </div>
       <aside className="space-y-4">
         <div className="card p-5">
-          <div className="eyebrow mb-1">Progress</div>
-          <div className="font-display text-[28px] font-bold tabular">
+          <div className="mb-1 text-[12.5px] font-medium text-muted">Progress</div>
+          <div className="text-[26px] font-semibold tracking-tight tabular">
             {done} of {trip.checklist.length}
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-sunken">

@@ -141,7 +141,7 @@ export default function NewTrip() {
   return (
     <Page>
       <PageHeader
-        eyebrow="New trip"
+        crumbs={[{ label: 'Trips', to: '/app/trips' }, { label: 'New trip' }]}
         title="Plan a trip"
         actions={
           <Button variant="secondary" icon={<Wand2 className="h-4 w-4" />} onClick={loadSample}>
@@ -152,27 +152,31 @@ export default function NewTrip() {
         Tell us where, when and how. The plan, map and budget build themselves, and you can change anything afterwards.
       </PageHeader>
 
-      <ol className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Steps">
+      <ol className="mb-6 grid grid-cols-2 overflow-hidden rounded-xl border border-line bg-surface shadow-card sm:grid-cols-4" aria-label="Steps">
         {STEPS.map((s, i) => (
-          <li key={s}>
+          <li key={s} className={clsx('border-line', i % 2 === 1 && 'border-l', i > 1 && 'border-t sm:border-t-0', i > 0 && 'sm:border-l')}>
             <button
               type="button"
               onClick={() => setStep(i)}
               aria-current={i === step ? 'step' : undefined}
               className={clsx(
-                'flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-[13.5px] transition-colors',
-                i === step ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-surface text-muted hover:text-ink',
+                'relative flex w-full items-center gap-2.5 px-4 py-3 text-left text-[13.5px] transition-colors',
+                i === step ? 'bg-brand-soft/50 text-ink' : 'text-muted hover:bg-sunken/60 hover:text-ink',
               )}
             >
               <span
                 className={clsx(
                   'grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-semibold',
-                  i < step ? 'bg-brand text-brand-ink' : i === step ? 'bg-brand text-brand-ink' : 'bg-sunken text-muted',
+                  i < step ? 'bg-ok text-white' : i === step ? 'bg-brand text-brand-ink' : 'border border-line-strong text-muted',
                 )}
               >
                 {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </span>
-              <span className="font-medium">{s}</span>
+              <span className="min-w-0">
+                <span className="block text-[11.5px] text-muted">Step {i + 1}</span>
+                <span className="block truncate font-medium">{s}</span>
+              </span>
+              {i === step && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-brand" />}
             </button>
           </li>
         ))}
@@ -442,13 +446,13 @@ export default function NewTrip() {
           </div>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+        <aside className="space-y-4 lg:sticky lg:top-[4.5rem] lg:self-start">
           <div className="card p-5">
-            <div className="eyebrow mb-2">Live estimate</div>
+            <div className="mb-2 text-[12.5px] font-medium text-muted">Live estimate</div>
             {preview ? (
               <>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-display text-[32px] font-bold tabular">{inr(preview.budget.perPerson)}</span>
+                  <span className="text-[28px] font-semibold tracking-tight tabular">{inr(preview.budget.perPerson)}</span>
                   <span className="text-[13px] text-muted">per person</span>
                 </div>
                 <BudgetMeter value={preview.budget.perPerson} cap={input.budgetPerPerson} />
@@ -462,7 +466,7 @@ export default function NewTrip() {
                           {fmtDuration(l.durationMin)}, {l.distanceKm} km{l.overnight ? ', overnight' : ''}
                         </span>
                       </span>
-                      <span className="tabular font-mono text-[12px]">{inr(l.cost)}</span>
+                      <span className="text-[12.5px] font-medium tabular">{inr(l.cost)}</span>
                     </li>
                   ))}
                 </ul>

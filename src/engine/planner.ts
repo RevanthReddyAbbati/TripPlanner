@@ -9,6 +9,7 @@ import {
 } from './rates';
 import { estimateHop, estimateLeg, HOP_THRESHOLD_KM, modeLabel } from './transport';
 import { buildChecklist } from './checklist';
+import { syncTravelers, travelersInUse } from './people';
 
 interface Window {
   dest: Destination;
@@ -18,7 +19,11 @@ interface Window {
 
 const BUCKET: Record<Place['bestTime'], number> = { morning: 0, any: 1, afternoon: 2, sunset: 3, evening: 4 };
 
-export function generateTrip(input: TripInput, existing?: Partial<Pick<Trip, 'id' | 'createdAt' | 'status' | 'notes' | 'checklist'>>): Trip {
+export function generateTrip(
+  input: TripInput,
+  existing?: Partial<Pick<Trip, 'id' | 'createdAt' | 'status' | 'notes' | 'checklist' | 'travelers' | 'expenses' | 'bookings'>>,
+  firstName?: string,
+): Trip {
   const warnings: string[] = [];
   const D = Math.max(1, Math.min(30, Math.round(input.days)));
   const n = Math.max(1, input.travelers);
@@ -37,7 +42,10 @@ export function generateTrip(input: TripInput, existing?: Partial<Pick<Trip, 'id
     notes: existing?.notes ?? '',
     warnings,
     unscheduled: {},
-    version: 1,
+    expenses: existing?.expenses ?? [],
+    bookings: existing?.bookings ?? [],
+    travelers: syncTravelers(existing?.travelers, n, firstName, travelersInUse({ expenses: existing?.expenses ?? [] })),
+    version: 2,
   };
 
   if (!dests.length) {

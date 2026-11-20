@@ -7,6 +7,7 @@ import { ButtonLink } from '../components/ui/Button';
 import { Badge, Chip } from '../components/ui/Fields';
 import { INTERESTS, INTEREST_LABEL } from '../components/options';
 import { plural } from '../lib/format';
+import { dayColor } from '../components/map/colors';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -24,7 +25,7 @@ export default function Explore() {
 
   return (
     <Page>
-      <PageHeader eyebrow="Explore" title="Destinations">
+      <PageHeader title="Explore destinations" crumbs={[{ label: 'Workspace' }, { label: 'Explore' }]}>
         Curated places with real coordinates, opening hours and entry fees. Plan a trip from any of them, or search any town when you plan.
       </PageHeader>
       <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -44,26 +45,46 @@ export default function Explore() {
       {list.length === 0 ? (
         <p className="card p-8 text-center text-muted">No destinations match these filters.</p>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {list.map((d) => {
+        <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((d, idx) => {
             const top = [...d.places].sort((a, b) => b.priority - a.priority).slice(0, 4);
             const good = d.bestMonths.includes(thisMonth);
+            const c = dayColor(idx);
             return (
-              <li key={d.id} className="card flex flex-col p-5">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div>
-                    <h2 className="text-[18px] font-semibold">{d.name}</h2>
-                    <div className="flex items-center gap-1 text-[12.5px] text-muted">
-                      <MapPin className="h-3.5 w-3.5" /> {d.state}
+              <li key={d.id} className="card flex flex-col overflow-hidden">
+                <div className="relative h-24 overflow-hidden" style={{ background: `linear-gradient(135deg, ${c}, ${c}aa 60%, ${c}55)` }}>
+                  <svg className="absolute inset-0 h-full w-full opacity-25" aria-hidden="true">
+                    <defs>
+                      <pattern id={`p-${d.id}`} width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+                        <path d="M0 11h22" stroke="#fff" strokeWidth="1" />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill={`url(#p-${d.id})`} />
+                  </svg>
+                  <div className="absolute bottom-3 left-5 right-5 flex items-end justify-between gap-2 text-white">
+                    <div>
+                      <h2 className="text-[19px] font-semibold drop-shadow-sm">{d.name}</h2>
+                      <div className="flex items-center gap-1 text-[12.5px] opacity-90">
+                        <MapPin className="h-3.5 w-3.5" /> {d.state}
+                      </div>
                     </div>
+                    {good && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-semibold text-ok">
+                        <CalendarCheck className="h-3 w-3" /> In season
+                      </span>
+                    )}
                   </div>
-                  {good && (
-                    <Badge tone="ok">
-                      <CalendarCheck className="h-3 w-3" /> In season
-                    </Badge>
-                  )}
                 </div>
-                <p className="text-[14px] text-muted">{d.summary}</p>
+                <div className="flex flex-1 flex-col p-5">
+                <p className="text-[13.5px] text-muted">{d.summary}</p>
+                <div className="mt-3 flex gap-0.5" aria-label="Best months">
+                  {MONTHS.map((m, i) => (
+                    <span key={m} title={m} className="flex-1">
+                      <span className={`block h-1.5 rounded-full ${d.bestMonths.includes(i + 1) ? 'bg-ok' : 'bg-sunken'} ${i + 1 === thisMonth ? 'ring-1 ring-ink/40' : ''}`} />
+                      <span className="mt-1 block text-center text-[9.5px] text-muted">{m[0]}</span>
+                    </span>
+                  ))}
+                </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {d.tags.map((t) => (
                     <Badge key={t}>{INTEREST_LABEL[t]}</Badge>
@@ -78,12 +99,12 @@ export default function Explore() {
                 </ul>
                 <div className="mt-auto flex items-center justify-between pt-5">
                   <span className="text-[12.5px] text-muted">
-                    {plural(d.places.length, 'place')} · Best {d.bestMonths.map((m) => MONTHS[m - 1]).slice(0, 3).join(', ')}
-                    {d.bestMonths.length > 3 ? '…' : ''}
+                    {plural(d.places.length, 'place')}
                   </span>
                   <ButtonLink to={`/app/new?dest=${d.id}`} size="sm" variant="secondary">
                     Plan <ArrowRight className="h-3.5 w-3.5" />
                   </ButtonLink>
+                </div>
                 </div>
               </li>
             );

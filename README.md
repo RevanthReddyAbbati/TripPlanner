@@ -13,6 +13,12 @@ Plan multi-stop trips for a group: choose where you start, the destinations in o
 - **Live map** (Leaflet + OpenStreetMap): numbered stops coloured by day, road routes from OSRM for the selected day, dashed lines for intercity journeys, place search, drop a pin to add a place, "my location", and Google Maps links on every stop.
 - **Editing**: reorder, remove or add stops (suggestions, search, map pin or a custom stop). Times update to fit, and timing clashes are flagged.
 - **Budget**: transport per leg, rooms by tier and group size, food, local transport, entry fees and contingency, split per person and checked against the cap. "Ways to save" offers cheaper options and applies them in one click.
+- **Expense tracking during the trip**: log spends in seconds (amount, category, who paid, who shares, UPI/cash/card), from the Expenses tab, any itinerary stop, a booking, or `Ctrl+K`. See spent vs cap, remaining, per-person spend, a daily allowance for the days left, a forecast at the current pace, category-vs-plan bars, daily and cumulative charts, and alerts when you go over.
+- **Split and settle up**: per-traveller paid / share / balance and the fewest transfers that settle the group. Name your travellers in trip settings.
+- **Bookings**: tickets, stays and activities with provider, PNR / confirmation number, dates and status. Suggested straight from the plan, and optionally logged as an expense when confirmed.
+- **Trip overview**: live / upcoming / completed status, today's plan, route timeline, budget health, weather forecast per destination (Open-Meteo), recent expenses.
+- **Workspace dashboards**: Home (live or next trip, needs-attention list), Trips (table or cards), a cross-trip Expenses ledger with CSV export, and Reports (by category, trip, traveller and month).
+- **Command palette**: `Ctrl+K` / `Cmd+K` to jump to any trip, page or destination, or add an expense.
 - **Checklist** generated from the plan (tickets per leg, stays, documents, money, packing), plus your own items.
 - **Sharing and export**: view-only share links (the whole trip is compressed into the link, so nothing is uploaded), calendar `.ics`, JSON export and import, print or save as PDF.
 - **Workspace**: dashboard with search and filters, trip status (draft, planned, booked, completed), duplicate, backup and restore, default preferences, light and dark themes, and phone layouts.
@@ -26,7 +32,8 @@ Plan multi-stop trips for a group: choose where you start, the destinations in o
 | Routing | React Router (hash routing, so deep links work on GitHub Pages) |
 | State | Zustand with persistence to `localStorage` |
 | Maps | Leaflet + react-leaflet, OpenStreetMap tiles |
-| Geo services | Nominatim (search), OSRM (routing), Overpass (attractions). All free, no API keys |
+| Geo services | Nominatim (search), OSRM (routing), Overpass (attractions), Open-Meteo (weather). All free, no API keys |
+| Charts | Small dependency-free SVG components (`src/components/charts`) |
 | Build and test | Vite, Vitest |
 | Hosting | GitHub Pages via GitHub Actions |
 

@@ -3,38 +3,55 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Palette: deep lagoon teal brand, mango accent, neutrals biased slightly toward the brand hue. */
+/*
+ * Design system: neutral slate canvas, one confident blue for actions, semantic colors for money states.
+ * Light is the primary theme; dark mirrors it with the same roles.
+ */
 :root {
-  --bg: 244 247 246;
+  --bg: 246 247 249;
   --surface: 255 255 255;
-  --sunken: 236 241 240;
-  --ink: 16 37 40;
-  --muted: 88 111 114;
-  --line: 214 224 223;
-  --brand: 15 92 99;
+  --sunken: 241 243 246;
+  --raised: 255 255 255;
+  --ink: 15 23 42;
+  --ink-2: 51 65 85;
+  --muted: 100 112 132;
+  --line: 228 231 236;
+  --line-strong: 208 213 221;
+  --brand: 37 87 214;
   --brand-ink: 255 255 255;
-  --brand-soft: 222 238 237;
-  --accent: 214 125 38;
-  --ok: 37 128 82;
-  --warn: 178 112 8;
-  --bad: 190 46 40;
+  --brand-soft: 236 242 255;
+  --accent: 217 119 6;
+  --ok: 22 135 86;
+  --ok-soft: 231 246 238;
+  --warn: 196 120 0;
+  --warn-soft: 254 245 225;
+  --bad: 204 43 43;
+  --bad-soft: 253 236 236;
+  --shadow: 16 24 40;
   color-scheme: light;
 }
 
 :root[data-theme='dark'] {
-  --bg: 12 22 24;
-  --surface: 19 33 36;
-  --sunken: 15 27 29;
-  --ink: 226 237 235;
-  --muted: 145 168 169;
-  --line: 38 58 61;
-  --brand: 94 196 196;
-  --brand-ink: 8 26 28;
-  --brand-soft: 24 56 58;
-  --accent: 242 166 90;
-  --ok: 110 211 154;
-  --warn: 240 190 90;
-  --bad: 255 128 118;
+  --bg: 9 12 18;
+  --surface: 16 20 29;
+  --sunken: 12 16 23;
+  --raised: 22 27 38;
+  --ink: 232 236 243;
+  --ink-2: 196 203 215;
+  --muted: 138 149 168;
+  --line: 34 40 54;
+  --line-strong: 50 58 76;
+  --brand: 112 152 255;
+  --brand-ink: 9 12 18;
+  --brand-soft: 25 36 66;
+  --accent: 245 166 70;
+  --ok: 74 210 140;
+  --ok-soft: 16 44 32;
+  --warn: 245 190 80;
+  --warn-soft: 48 38 14;
+  --bad: 255 120 112;
+  --bad-soft: 56 22 22;
+  --shadow: 0 0 0;
   color-scheme: dark;
 }
 
@@ -46,45 +63,79 @@
   }
   body {
     @apply bg-bg text-ink font-sans antialiased;
-    font-size: 15px;
+    /* room for the fixed footer */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
+    font-size: 14px;
+    font-feature-settings: 'cv11', 'ss01';
   }
   h1,
   h2,
-  h3 {
-    @apply font-display;
+  h3,
+  h4 {
+    @apply font-display tracking-tight;
     text-wrap: balance;
   }
   :focus-visible {
     outline: 2px solid rgb(var(--brand));
     outline-offset: 2px;
   }
-  input[type='date']::-webkit-calendar-picker-indicator {
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='time']::-webkit-calendar-picker-indicator {
     filter: var(--date-icon-filter, none);
   }
-  :root[data-theme='dark'] input[type='date'] {
+  :root[data-theme='dark'] input[type='date'],
+  :root[data-theme='dark'] input[type='time'] {
     --date-icon-filter: invert(0.8);
+  }
+  ::selection {
+    background: rgb(var(--brand) / 0.2);
   }
 }
 
 @layer components {
   .card {
-    @apply bg-surface border border-line rounded-xl;
+    @apply rounded-xl border border-line bg-surface;
+    box-shadow: 0 1px 2px rgb(var(--shadow) / 0.05);
+  }
+  .card-header {
+    @apply flex items-center justify-between gap-3 border-b border-line px-5 py-3.5;
+  }
+  .card-title {
+    @apply text-[14px] font-semibold text-ink;
   }
   .input {
-    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink placeholder:text-muted/70
-      focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
+    @apply h-9 w-full rounded-lg border border-line-strong bg-surface px-3 text-[14px] text-ink placeholder:text-muted/70
+      transition-colors focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15;
+  }
+  textarea.input {
+    @apply h-auto py-2;
   }
   .label {
-    @apply mb-1.5 block text-[13px] font-medium text-ink;
+    @apply mb-1.5 block text-[13px] font-medium text-ink-2;
   }
   .hint {
-    @apply mt-1 text-[12.5px] text-muted;
+    @apply mt-1.5 text-[12.5px] text-muted;
   }
   .eyebrow {
-    @apply font-mono text-[11.5px] uppercase tracking-[0.08em] text-muted;
+    @apply text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted;
   }
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-sunken px-1 font-mono text-[11px] text-muted;
+  }
+  .table-base {
+    @apply w-full text-[13.5px];
+  }
+  .table-base th {
+    @apply whitespace-nowrap border-b border-line bg-sunken/60 px-4 py-2.5 text-left text-[12px] font-medium text-muted;
+  }
+  .table-base td {
+    @apply border-b border-line px-4 py-3 align-middle;
+  }
+  .table-base tr:last-child td {
+    @apply border-b-0;
   }
 }
 
@@ -98,7 +149,7 @@
 }
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-  background: rgb(var(--surface));
+  background: rgb(var(--raised));
   color: rgb(var(--ink));
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
 }
@@ -133,6 +184,20 @@
 }
 .pin.active {
   outline: 3px solid rgb(var(--ink));
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-in {
+  animation: fade-in 0.18s ease-out;
 }
 
 @media print {
