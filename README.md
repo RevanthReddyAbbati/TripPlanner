@@ -20,9 +20,16 @@ Plan multi-stop trips for a group: choose where you start, the destinations in o
 - **Workspace dashboards**: Home (live or next trip, needs-attention list), Trips (table or cards), a cross-trip Expenses ledger with CSV export, and Reports (by category, trip, traveller and month).
 - **Command palette**: `Ctrl+K` / `Cmd+K` to jump to any trip, page or destination, or add an expense.
 - **Checklist** generated from the plan (tickets per leg, stays, documents, money, packing), plus your own items.
-- **Sharing and export**: view-only share links (the whole trip is compressed into the link, so nothing is uploaded), calendar `.ics`, JSON export and import, print or save as PDF.
+- **Sharing and export**: view-only share links (the whole trip is compressed into the link, so nothing is uploaded; expenses and bookings are left out unless you include them), calendar `.ics`, JSON export and import, print or save as PDF.
 - **Workspace**: dashboard with search and filters, trip status (draft, planned, booked, completed), duplicate, backup and restore, default preferences, light and dark themes, and phone layouts.
 - **Catalog**: 14 curated destinations, 147 places with OpenStreetMap coordinates, hours, fees and notes. Any other town works too: Itinera pulls its attractions from OpenStreetMap (Overpass).
+
+## Visuals and motion
+
+- **Landing page**: a full-bleed hero with a looping route-map video (`public/media/hero-loop.webm` / `.mp4`, 10 s, under 1 MB, with a still poster). Visitors with reduced motion or data saver on get the still frame. Below it: a destination photo gallery, features, live counts from the catalog, the steps, the roadmap, an FAQ and a footer.
+- **Destination photos**: covers on Explore, trip cards, the Home hero card and each trip's header come from Wikipedia's page summary API (no key). Catalog destinations map to hand-picked articles (`src/services/photos.ts`), and any other town uses its own name. Lookups are cached in `localStorage`, each photo links to its Wikimedia Commons file page for credit, and a quiet placeholder shows while loading or offline.
+- **Motion** (`src/lib/motion.ts`, `src/index.css`): one easing curve and three durations. Pages fade and rise in, lists stagger, sections reveal on scroll, figures count up, dialogs and menus rise in (as a bottom sheet on phones), map routes draw themselves, and the theme switch grows from the toggle (View Transitions). Everything respects `prefers-reduced-motion`.
+- **Resilience**: error boundaries around every page, a stricter check for imported and shared trips, and a web app manifest.
 
 ## Tech stack
 

@@ -13,6 +13,8 @@ import { Page } from '../components/layout/AppShell';
 import { ButtonLink } from '../components/ui/Button';
 import { Card, EmptyState, Progress, Stat, StatGrid, AvatarStack, Dot } from '../components/ui/Kit';
 import { dayColor } from '../components/map/colors';
+import { DestinationPhoto } from '../components/ui/Photo';
+import { CountUp } from '../components/ui/CountUp';
 import { inr, plural } from '../lib/format';
 import { fmtDate, fmtDay, fmtTime, toISODate } from '../lib/time';
 
@@ -103,9 +105,9 @@ export default function Home() {
 
           <StatGrid>
             <Stat label="Active and upcoming" value={String((live ? 1 : 0) + upcoming.length)} sub={live ? '1 trip in progress' : upcoming[0] ? `Next in ${plural((upcoming[0].phase as { daysToGo: number }).daysToGo, 'day')}` : 'Nothing scheduled'} tone={live ? 'ok' : undefined} />
-            <Stat label={`Spent in ${year}`} value={inr(spentYear)} sub={`${rows.reduce((a, r) => a + r.t.expenses.length, 0)} expenses logged`} />
-            <Stat label="Planned, upcoming trips" value={inr(plannedUpcoming)} sub={`${plural(upcoming.length, 'trip')} ahead`} />
-            <Stat label="Avg per person per day" value={inr(avgPPD)} sub="Across all trips" />
+            <Stat label={`Spent in ${year}`} value={<CountUp value={spentYear} format={inr} />} sub={`${rows.reduce((a, r) => a + r.t.expenses.length, 0)} expenses logged`} />
+            <Stat label="Planned, upcoming trips" value={<CountUp value={plannedUpcoming} format={inr} />} sub={`${plural(upcoming.length, 'trip')} ahead`} />
+            <Stat label="Avg per person per day" value={<CountUp value={avgPPD} format={inr} />} sub="Across all trips" />
           </StatGrid>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -238,6 +240,18 @@ export default function Home() {
   );
 }
 
+/** A short photo band across the top of the hero card, one photo per destination. */
+function TripBand({ trip, color }: { trip: Trip; color: string }) {
+  const dests = trip.input.destinations.slice(0, 3);
+  return (
+    <div className="group grid h-24 gap-px bg-line sm:h-28" style={{ gridTemplateColumns: `repeat(${Math.max(1, dests.length)}, minmax(0, 1fr))` }}>
+      {dests.map((d) => (
+        <DestinationPhoto key={d.id} dest={d} color={color} priority credit={false} sizes="(min-width: 1024px) 40vw, 100vw" className="h-full" />
+      ))}
+    </div>
+  );
+}
+
 function HeroCard({ row }: { row: { t: Trip; i: number; phase: ReturnType<typeof tripPhase>; sum: ReturnType<typeof summarize>; budget: ReturnType<typeof computeBudget> } }) {
   const { t, i, phase, sum, budget } = row;
   const D = t.days.length;
@@ -251,12 +265,12 @@ function HeroCard({ row }: { row: { t: Trip; i: number; phase: ReturnType<typeof
     const next = day.stops.filter((s) => s.end >= now && s.kind !== 'meal' && s.kind !== 'rest').slice(0, 3);
     return (
       <section className="card overflow-hidden">
-        <div className="h-1" style={{ background: color }} />
+        <TripBand trip={t} color={color} />
         <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-ok-soft px-2 py-0.5 text-[11.5px] font-semibold text-ok">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" /> Live · Day {phase.dayIndex + 1} of {D}
+                <span className="live-dot" /> Live · Day {phase.dayIndex + 1} of {D}
               </span>
               <span className="truncate text-[12.5px] text-muted">{route}</span>
             </div>
@@ -284,7 +298,7 @@ function HeroCard({ row }: { row: { t: Trip; i: number; phase: ReturnType<typeof
               <span className="text-[12.5px] font-medium text-muted">Spent today</span>
               <span className="text-[12.5px] text-muted">Allowance {inr(sum.dailyAllowance)}/day</span>
             </div>
-            <div className="mt-1 text-[24px] font-semibold tabular">{inr(todaySpent)}</div>
+            <div className="mt-1 text-[24px] font-semibold tabular"><CountUp value={todaySpent} format={inr} /></div>
             <div className="mt-2">
               <Progress value={todaySpent} max={sum.dailyAllowance || 1} tone="auto" label="Today's spend vs allowance" />
             </div>
@@ -313,11 +327,11 @@ function HeroCard({ row }: { row: { t: Trip; i: number; phase: ReturnType<typeof
   const confirmed = t.bookings.filter((b) => b.status === 'confirmed').length;
   return (
     <section className="card overflow-hidden">
-      <div className="h-1" style={{ background: color }} />
+      <TripBand trip={t} color={color} />
       <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[auto_minmax(0,1fr)]">
         <div className="flex items-center gap-4 lg:border-r lg:border-line lg:pr-8">
           <div className="text-center">
-            <div className="text-[40px] font-semibold leading-none tabular">{daysToGo}</div>
+            <div className="text-[40px] font-semibold leading-none tabular"><CountUp value={daysToGo} duration={700} /></div>
             <div className="mt-1 text-[12.5px] text-muted">{daysToGo === 1 ? 'day to go' : 'days to go'}</div>
           </div>
         </div>

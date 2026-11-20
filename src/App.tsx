@@ -13,6 +13,7 @@ import SharedTrip from './pages/SharedTrip';
 import NotFound from './pages/NotFound';
 import { applyTheme, useSettings } from './store/settings';
 import { Spinner } from './components/ui/Spinner';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 // The trip workspace pulls in Leaflet, so it loads on demand.
 const TripView = lazy(() => import('./pages/TripView'));
@@ -36,6 +37,7 @@ export default function App() {
 
   return (
     <>
+    <ErrorBoundary>
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/shared" element={<SharedTrip />} />
@@ -59,6 +61,7 @@ export default function App() {
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </ErrorBoundary>
     <footer
       className="no-print fixed inset-x-0 bottom-0 z-[900] border-t border-line bg-surface/95 px-4 py-2 text-center text-[12.5px] text-muted backdrop-blur"
       style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }}

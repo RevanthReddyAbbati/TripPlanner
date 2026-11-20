@@ -21,16 +21,18 @@ export default {
         warn: { DEFAULT: v('warn'), soft: v('warn-soft') },
         bad: { DEFAULT: v('bad'), soft: v('bad-soft') },
       },
-      fontFamily: {
-        display: ['Inter', '"Segoe UI"', 'system-ui', 'sans-serif'],
-        sans: ['Inter', '"Segoe UI"', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'Consolas', 'monospace'],
-      },
       boxShadow: {
         card: '0 1px 2px rgb(var(--shadow) / 0.05)',
         pop: '0 16px 40px -8px rgb(var(--shadow) / 0.22), 0 2px 6px rgb(var(--shadow) / 0.06)',
       },
       minWidth: { 5: '1.25rem' },
+      transitionTimingFunction: { 'out-soft': 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      fontFamily: {
+        display: ['Inter', '"Segoe UI"', 'system-ui', 'sans-serif'],
+        sans: ['Inter', '"Segoe UI"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'Consolas', 'monospace'],
+        serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+      },
     },
   },
   plugins: [],

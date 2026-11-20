@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { DestinationPhoto } from '../components/ui/Photo';
 import { Link, useNavigate } from 'react-router-dom';
 import { LayoutGrid, List, Map as MapIcon, Plus, Search, Upload } from 'lucide-react';
 import clsx from 'clsx';
 import type { Trip } from '../types';
+import { assertTripShape } from '../lib/share';
 import { useAllTrips, useTrips } from '../store/trips';
 import { computeBudget } from '../engine/budget';
 import { summarize, tripEndDate, tripPhase, type TripPhase } from '../engine/expenses';
@@ -79,8 +81,8 @@ export default function Trips() {
 
   const onImport = async (f: File) => {
     try {
-      const trip = JSON.parse(await f.text()) as Trip;
-      if ((trip.version !== 1 && trip.version !== 2) || !Array.isArray(trip.days)) throw new Error();
+      const trip: unknown = JSON.parse(await f.text());
+      assertTripShape(trip);
       const id = importTrip(trip);
       toast(`Imported ${trip.input.name}.`);
       navigate(`/app/trips/${id}`);
@@ -245,13 +247,15 @@ export default function Trips() {
               </div>
             </div>
           ) : (
-            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {shown.map(({ t, i, phase, budget, sum, end }) => {
+            <ul className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {shown.map(({ t, i, phase, budget, sum, end }, idx) => {
                 const done = t.checklist.filter((c) => c.done).length;
                 return (
-                  <li key={t.id} className="min-w-0">
-                    <Link to={`/app/trips/${t.id}`} className="card flex h-full flex-col overflow-hidden transition-shadow hover:shadow-pop">
-                      <div className="h-1.5" style={{ background: dayColor(i) }} />
+                  <li key={t.id} className="min-w-0" style={{ '--i': idx } as CSSProperties}>
+                    <Link to={`/app/trips/${t.id}`} className="lift group card flex h-full flex-col overflow-hidden hover:border-line-strong">
+                      <DestinationPhoto dest={t.input.destinations[0]} color={dayColor(i)} zoomOnHover credit={false} sizes="(min-width: 1280px) 400px, (min-width: 640px) 50vw, 100vw" className="h-32">
+                        <span className="absolute left-3 top-3 h-2.5 w-2.5 rounded-full ring-2 ring-white" style={{ background: dayColor(i) }} />
+                      </DestinationPhoto>
                       <div className="flex flex-1 flex-col p-5">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">

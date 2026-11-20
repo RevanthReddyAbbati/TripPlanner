@@ -11,7 +11,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import { FOOD_OPTIONS, LOCAL_OPTIONS, PACE_OPTIONS, STAY_OPTIONS, TRANSPORT_OPTIONS } from '../components/options';
-import { downloadFile } from '../lib/share';
+import { assertTripShape, downloadFile } from '../lib/share';
 
 export default function Settings() {
   const s = useSettings();
@@ -34,6 +34,7 @@ export default function Settings() {
     try {
       const data = JSON.parse(await f.text()) as { trips?: Trip[] };
       if (!Array.isArray(data.trips)) throw new Error();
+      data.trips.forEach((t) => assertTripShape(t));
       data.trips.forEach((t) => trips.importTrip(t));
       toast(`Restored ${data.trips.length} trip${data.trips.length === 1 ? '' : 's'}.`);
     } catch {

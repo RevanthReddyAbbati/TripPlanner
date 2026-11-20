@@ -20,6 +20,35 @@ async function pipe(bytes: Uint8Array, stream: CompressionStream | Decompression
   return new Uint8Array(await new Response(out).arrayBuffer());
 }
 
+/**
+ * The copy of a trip that goes into a share link. Expenses and bookings (which can hold PNRs and
+ * confirmation numbers) stay out unless the sharer opts in.
+ */
+export function shareableTrip(trip: Trip, { includeMoney = false }: { includeMoney?: boolean } = {}): Trip {
+  if (includeMoney) return trip;
+  return { ...trip, expenses: [], bookings: [] };
+}
+
+/** Throws unless `data` has the shape of a saved trip. Guards imports and share links. */
+export function assertTripShape(data: unknown): asserts data is Trip {
+  const t = data as Partial<Trip> | null;
+  const ok =
+    !!t &&
+    typeof t === 'object' &&
+    (t.version === 1 || t.version === 2) &&
+    Array.isArray(t.days) &&
+    !!t.input &&
+    typeof t.input === 'object' &&
+    typeof t.input.name === 'string' &&
+    typeof t.input.startDate === 'string' &&
+    Number.isFinite(t.input.travelers) &&
+    Array.isArray(t.input.destinations) &&
+    !!t.input.origin &&
+    (t.expenses === undefined || Array.isArray(t.expenses)) &&
+    (t.bookings === undefined || Array.isArray(t.bookings));
+  if (!ok) throw new Error('This is not a valid Itinera trip.');
+}
+
 export async function encodeTrip(trip: Trip): Promise<string> {
   const json = new TextEncoder().encode(JSON.stringify(trip));
   if (typeof CompressionStream === 'undefined') return 'j' + toB64Url(json);
@@ -30,8 +59,8 @@ export async function decodeTrip(data: string): Promise<Trip> {
   const kind = data[0];
   const bytes = fromB64Url(data.slice(1));
   const raw = kind === 'z' ? await pipe(bytes, new DecompressionStream('deflate-raw')) : bytes;
-  const trip = JSON.parse(new TextDecoder().decode(raw)) as Trip;
-  if (!trip || (trip.version !== 1 && trip.version !== 2) || !Array.isArray(trip.days)) throw new Error('This link does not contain a valid trip.');
+  const trip: unknown = JSON.parse(new TextDecoder().decode(raw));
+  assertTripShape(trip);
   return normalizeTrip(trip);
 }
 

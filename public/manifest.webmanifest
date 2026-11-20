@@ -1,0 +1,11 @@
+{
+  "name": "Itinera · Trip Planner",
+  "short_name": "Itinera",
+  "description": "Plan multi-stop trips with routes, live maps, day-by-day timings and group budgets.",
+  "start_url": "./#/app/home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f9",
+  "theme_color": "#2557d6",
+  "icons": [{ "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

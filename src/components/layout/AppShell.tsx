@@ -12,6 +12,7 @@ import { Avatar, Dot } from '../ui/Kit';
 import { tripPhase } from '../../engine/expenses';
 import { useAI, useAIReady } from '../../store/ai';
 import { dayColor } from '../map/colors';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
 
 const NAV = [
   { to: '/app/home', label: 'Home', icon: Home },
@@ -32,6 +33,7 @@ export default function AppShell() {
   const aiOn = useAIReady();
   const aiModel = useAI((s) => s.model);
 
+  const pageKey = pathname.split('/').slice(0, 4).join('/');
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -70,15 +72,22 @@ export default function AppShell() {
                 end={to === '/app/trips'}
                 className={({ isActive }) =>
                   clsx(
-                    'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13.5px] font-medium transition-colors',
+                    'relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13.5px] font-medium transition-colors',
                     isActive || (to === '/app/trips' && pathname.startsWith('/app/trips/'))
                       ? 'bg-sunken text-ink'
                       : 'text-ink-2 hover:bg-sunken hover:text-ink',
                   )
                 }
               >
-                <Icon className="h-4 w-4 opacity-80" />
-                {label}
+                {({ isActive }) => (
+                  <>
+                    {(isActive || (to === '/app/trips' && pathname.startsWith('/app/trips/'))) && (
+                      <span aria-hidden="true" className="nav-indicator absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-brand" />
+                    )}
+                    <Icon className="h-4 w-4 opacity-80" />
+                    {label}
+                  </>
+                )}
               </NavLink>
             </li>
           ))}
@@ -104,7 +113,11 @@ export default function AppShell() {
                     >
                       <Dot color={dayColor(i)} />
                       <span className="min-w-0 flex-1 truncate">{t.input.name}</span>
-                      {phase.kind === 'live' && <span className="rounded bg-ok-soft px-1.5 text-[10.5px] font-semibold text-ok">LIVE</span>}
+                      {phase.kind === 'live' && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ok">
+                          <span className="live-dot" /> Live
+                        </span>
+                      )}
                     </NavLink>
                   </li>
                 );
@@ -145,8 +158,8 @@ export default function AppShell() {
       <aside className="no-print sticky top-0 hidden h-[calc(100vh-40px)] w-60 shrink-0 border-r border-line bg-surface lg:block">{sidebar}</aside>
       {open && (
         <div className="fixed inset-0 z-[1200] lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="animate-in absolute inset-y-0 left-0 w-72 max-w-[85vw] border-r border-line bg-surface">{sidebar}</aside>
+          <div className="backdrop-in absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <aside className="drawer-in absolute inset-y-0 left-0 w-72 max-w-[85vw] border-r border-line bg-surface">{sidebar}</aside>
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -174,7 +187,12 @@ export default function AppShell() {
           </div>
         </header>
         <main className="min-w-0 flex-1">
-          <Outlet />
+          {/* Each page arrives with a short fade and rise; keyed by path so tab changes inside a trip don't replay it */}
+          <div key={pageKey} className="page-enter">
+            <ErrorBoundary key={pageKey}>
+              <Outlet />
+            </ErrorBoundary>
+          </div>
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
