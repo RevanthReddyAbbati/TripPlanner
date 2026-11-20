@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle, CalendarDays, CheckSquare, LayoutDashboard, Map as MapIcon, NotebookPen, ReceiptIndianRupee, Settings2, Ticket, Wallet,
+  AlertTriangle, CalendarDays, CheckSquare, LayoutDashboard, Map as MapIcon, NotebookPen, ReceiptIndianRupee, Settings2, Sparkles, Ticket, Wallet,
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { Booking, DayPlan, Expense, Place, Traveler, Trip, TripInput } from '../../types';
@@ -16,6 +16,7 @@ import { AddPlaceModal, type AddPlaceResult } from './AddPlaceModal';
 import { OverviewPanel } from './OverviewPanel';
 import { ExpensesPanel } from './ExpensesPanel';
 import { BookingsPanel } from './BookingsPanel';
+import { AssistantPanel } from './AssistantPanel';
 import { Spinner } from '../ui/Spinner';
 import { Tabs } from '../ui/Kit';
 import type { MapAddRequest } from '../map/TripMap';
@@ -26,6 +27,8 @@ const TripMap = lazy(() => import('../map/TripMap'));
 
 export interface WorkspaceActions {
   setDay: (day: DayPlan) => void;
+  /** Replace all days at once (used by AI plan edits, which may touch several days). */
+  setDays: (days: DayPlan[]) => void;
   addPlace: (destinationId: string, place: Place) => void;
   toggleCheck: (id: string) => void;
   addCheck: (label: string) => void;
@@ -44,8 +47,8 @@ export interface WorkspaceActions {
   removeBooking: (bookingId: string) => void;
 }
 
-export type WorkspaceTab = 'overview' | 'plan' | 'map' | 'budget' | 'expenses' | 'bookings' | 'checklist' | 'notes' | 'settings';
-const TABS: WorkspaceTab[] = ['overview', 'plan', 'map', 'budget', 'expenses', 'bookings', 'checklist', 'notes', 'settings'];
+export type WorkspaceTab = 'overview' | 'assistant' | 'plan' | 'map' | 'budget' | 'expenses' | 'bookings' | 'checklist' | 'notes' | 'settings';
+const TABS: WorkspaceTab[] = ['overview', 'assistant', 'plan', 'map', 'budget', 'expenses', 'bookings', 'checklist', 'notes', 'settings'];
 
 export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnly?: boolean; actions?: WorkspaceActions }) {
   const [params, setParams] = useSearchParams();
@@ -76,7 +79,7 @@ export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnl
   };
 
   useEffect(() => {
-    if (tab === 'settings' && !editable) setTab('overview');
+    if ((tab === 'settings' || tab === 'assistant') && !editable) setTab('overview');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, editable]);
 
@@ -149,6 +152,7 @@ export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnl
         onChange={(t) => setTab(t)}
         items={[
           { value: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
+          ...(editable ? [{ value: 'assistant' as const, label: 'Assistant', icon: <Sparkles className="h-4 w-4 text-accent" /> }] : []),
           { value: 'plan', label: 'Itinerary', icon: <CalendarDays className="h-4 w-4" /> },
           { value: 'map', label: 'Map', icon: <MapIcon className="h-4 w-4" />, className: 'xl:hidden' },
           { value: 'budget', label: 'Budget', icon: <Wallet className="h-4 w-4" /> },
@@ -161,6 +165,8 @@ export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnl
       />
 
       {tab === 'overview' && <OverviewPanel trip={trip} readOnly={!editable} actions={actions} onNavigate={(t, extra) => setTab(t, extra)} />}
+
+      {tab === 'assistant' && editable && <AssistantPanel trip={trip} actions={actions!} onNavigate={(t, extra) => setTab(t, extra)} />}
 
       {(tab === 'plan' || tab === 'map') && (
         <>

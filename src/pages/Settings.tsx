@@ -1,5 +1,6 @@
-import { useRef, useState, type ReactNode } from 'react';
-import { Download, Lock, Sparkles, Trash2, Upload } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Download, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AISettings } from '../components/ai/AISettings';
 import type { Trip } from '../types';
 import { useSettings, type Theme } from '../store/settings';
 import { useTrips } from '../store/trips';
@@ -18,6 +19,11 @@ export default function Settings() {
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+
+  // Deep link from "Set up AI" buttons: /app/settings#ai (hash routing puts it after the route).
+  useEffect(() => {
+    if (window.location.hash.endsWith('#ai')) setTimeout(() => document.getElementById('ai')?.scrollIntoView({ behavior: 'smooth' }), 50);
+  }, []);
 
   const backup = () => {
     const data = { app: 'itinera', exportedAt: new Date().toISOString(), trips: trips.order.map((id) => trips.trips[id]) };
@@ -109,13 +115,11 @@ export default function Settings() {
 
         <Section
           title="AI assistant"
-          desc="Phase 2 adds a Gemini-powered assistant that suggests places, rewrites days on request and answers questions about your trip."
+          desc="Gemini powers the trip assistant, plan changes in plain words, place ideas, receipt scanning and describe-your-trip."
           badge
+          id="ai"
         >
-          <div className="flex items-start gap-3 rounded-lg border border-dashed border-line p-4 text-[14px] text-muted">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>Not available yet. When it launches, the Gemini key will live on a small server proxy rather than in your browser, so it can't leak from the page.</p>
-          </div>
+          <AISettings />
         </Section>
 
         <Section title="Your data" desc="Trips are stored in this browser. Back them up before clearing browser data or switching devices.">
@@ -162,15 +166,15 @@ export default function Settings() {
   );
 }
 
-function Section({ title, desc, children, badge }: { title: string; desc?: string; children: ReactNode; badge?: boolean }) {
+function Section({ title, desc, children, badge, id }: { title: string; desc?: string; children: ReactNode; badge?: boolean; id?: string }) {
   return (
-    <section className="card p-5 sm:p-6">
+    <section id={id} className="card scroll-mt-20 p-5 sm:p-6">
       <div className="mb-4">
         <h2 className="flex items-center gap-2 text-[17px] font-semibold">
           {title}
           {badge && (
             <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-[11.5px] font-semibold text-accent">
-              <Sparkles className="h-3 w-3" /> Phase 2
+              <Sparkles className="h-3 w-3" /> Gemini
             </span>
           )}
         </h2>

@@ -22,6 +22,7 @@ interface TripState {
   updateInput: (id: string, patch: Partial<TripInput>) => void;
   setNotes: (id: string, notes: string) => void;
   setDay: (id: string, day: DayPlan) => void;
+  setDays: (id: string, days: DayPlan[]) => void;
   addPlace: (id: string, destinationId: string, place: Place) => void;
   toggleCheck: (id: string, itemId: string) => void;
   addCheck: (id: string, label: string) => void;
@@ -89,6 +90,7 @@ export const useTrips = create<TripState>()(
         updateInput: (id, patch) => patchTrip(id, (t) => ({ ...t, input: { ...t.input, ...patch } })),
         setNotes: (id, notes) => patchTrip(id, (t) => ({ ...t, notes })),
         setDay: (id, day) => patchTrip(id, (t) => ({ ...t, days: t.days.map((d) => (d.index === day.index ? day : d)) })),
+        setDays: (id, days) => patchTrip(id, (t) => ({ ...t, days })),
         addPlace: (id, destinationId, place) =>
           patchTrip(id, (t) => ({
             ...t,

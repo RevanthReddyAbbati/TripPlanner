@@ -9,6 +9,7 @@ import { INTEREST_LABEL } from '../options';
 import { inr, slug } from '../../lib/format';
 import { fmtDuration } from '../../lib/time';
 import { scorePlace } from '../../engine/planner';
+import { AiPlaceIdeas } from '../ai/AiPlaceIdeas';
 
 export interface AddPlaceResult {
   destinationId: string;
@@ -17,7 +18,7 @@ export interface AddPlaceResult {
   isNew: boolean;
 }
 
-type Tab = 'suggested' | 'search' | 'custom';
+type Tab = 'suggested' | 'ai' | 'search' | 'custom';
 
 export function AddPlaceModal({ trip, dayIndex, onClose, onAdd }: { trip: Trip; dayIndex: number | null; onClose: () => void; onAdd: (r: AddPlaceResult) => void }) {
   const [tab, setTab] = useState<Tab>('suggested');
@@ -47,6 +48,7 @@ export function AddPlaceModal({ trip, dayIndex, onClose, onAdd }: { trip: Trip; 
           onChange={setTab}
           options={[
             { value: 'suggested', label: 'Suggestions' },
+            { value: 'ai', label: '✦ AI ideas' },
             { value: 'search', label: 'Search' },
             { value: 'custom', label: 'Custom stop' },
           ]}
@@ -77,6 +79,15 @@ export function AddPlaceModal({ trip, dayIndex, onClose, onAdd }: { trip: Trip; 
             </ul>
           )}
         </div>
+      )}
+
+      {tab === 'ai' && (
+        <AiPlaceIdeas
+          destinations={trip.input.destinations}
+          defaultDestinationId={dest.id}
+          input={trip.input}
+          onAdd={(destinationId, place) => onAdd({ destinationId, place, isNew: true })}
+        />
       )}
 
       {tab === 'search' && (

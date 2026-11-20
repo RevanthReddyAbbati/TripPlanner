@@ -156,6 +156,7 @@ export default function TripView() {
         trip={trip}
         actions={{
           setDay: (d) => s.setDay(id, d),
+          setDays: (days) => s.setDays(id, days),
           addPlace: (destId, p) => s.addPlace(id, destId, p),
           toggleCheck: (cid) => s.toggleCheck(id, cid),
           addCheck: (label) => s.addCheck(id, label),

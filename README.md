@@ -2,7 +2,7 @@
 
 Plan multi-stop trips for a group: choose where you start, the destinations in order, dates, group size, budget per person and how you travel. Itinera builds a timed day-by-day itinerary, a live route map and a per-person budget, and you can edit all of it.
 
-**Phase 1 (this release)** is the full planner with no AI. **Phase 2** adds a Gemini-powered assistant (see [Roadmap](#roadmap)).
+**Phase 1** is the full planner and money tracker. **Phase 2** adds a Gemini-powered AI layer on top (see [AI features](#ai-features-gemini)). The planner works fully without AI.
 
 ## Features
 
@@ -84,14 +84,33 @@ Nominatim, OSRM's demo server, Overpass and the OpenStreetMap tile server are co
 
 Prices in `src/engine/rates.ts` and the catalog are typical figures for India and are estimates. Fares and room rates change, so check before booking.
 
+## AI features (Gemini)
+
+Phase 2 adds Gemini on top of the planner. Every AI feature returns structured JSON that the app validates and then hands to the deterministic engine, so **the model never sets timings or prices on its own**, and nothing changes in your plan until you click Apply.
+
+| Feature | Where |
+| --- | --- |
+| **Trip assistant**: ask about the plan, budget, who owes whom, packing, food, weather | Trip → Assistant → Ask |
+| **Change the plan in plain words**: "swap the fort on day 3 for a beach", previewed as add/remove/move operations before applying | Trip → Assistant → Change the plan |
+| **Place ideas** near any destination that suit the group, with an optional "in the mood for" prompt | Itinerary → Add place → AI ideas |
+| **Receipt scan**: photo of a bill or UPI screenshot → amount, title, category, method | Add expense → Scan receipt |
+| **Describe your trip** in one sentence → wizard filled in (destinations, dates, group, budget, transport) | New trip → Describe your trip |
+
+Safeguards: suggested places more than 80 km from the destination are dropped, numbers are clamped to sane ranges, edits can't touch travel or check-in stops, and AI place notes say to check hours and fees locally.
+
+### Connecting Gemini
+
+Open **Settings → AI assistant** and pick one:
+
+- **My API key**: paste a key from [Google AI Studio](https://aistudio.google.com/apikey). It's stored only in that browser, sent only to Google in the `x-goog-api-key` header (never in a URL), and never included in backups, exports or share links. Best for personal use.
+- **Proxy server**: deploy `proxy/cloudflare-worker.js` (instructions in [`proxy/README.md`](proxy/README.md)). The key stays on the server and the worker only accepts your site's origin. Set the repository variable `VITE_AI_PROXY_URL` and the GitHub Pages build turns AI on for every visitor without exposing your key.
+
+Never put a Gemini key in a `VITE_` variable or in the repository: anything built into the site is public.
+
+Models are selectable in Settings (default `gemini-3.6-flash`), and **Load my models** fetches the live list for your key. Gemini 3.x models ignore sampling parameters, so none are sent.
+
+Code: `src/services/ai/gemini.ts` (REST client, streaming, structured output with automatic fallback), `src/services/ai/provider.ts` (prompts and validation), `src/engine/aiEdits.ts` (applies edits through the engine), `src/store/ai.ts` (connection settings).
+
 ## Roadmap
 
-### Phase 2: AI assistant (Gemini)
-
-The seam is already in place: `src/services/ai/provider.ts` defines `TripAIProvider` and `FEATURES.ai` in `src/config.ts` gates the UI.
-
-1. **Server proxy for the Gemini key.** A small serverless function (Cloudflare Workers, Vercel or Firebase Functions) holds the key. The static site calls the proxy, never Gemini directly, so the key is never shipped to browsers.
-2. **Place suggestions.** Ask Gemini for places matching the group's interests as structured JSON (`Place[]`), validate the coordinates against Nominatim, and merge them into the destination before planning.
-3. **Edit in plain words.** "Swap day 3 for a Dudhsagar trip" becomes structured edits that the deterministic engine re-times and re-costs, so the AI never invents timings or prices.
-4. **Trip chat.** Answer questions with the itinerary as context.
-5. **Accounts and sync.** Replace the `localStorage` store with a backend (Supabase or Firebase) for sign-in, multi-device sync and shared editing. The store's actions in `src/store/trips.ts` are the integration point.
+- **Accounts and sync.** Replace the `localStorage` store with a backend (Supabase or Firebase) for sign-in, multi-device sync and shared editing. The store's actions in `src/store/trips.ts` are the integration point; the AI proxy can move behind the same auth.

@@ -10,6 +10,7 @@ import { useAllTrips } from '../../store/trips';
 import { ButtonLink } from '../ui/Button';
 import { Avatar, Dot } from '../ui/Kit';
 import { tripPhase } from '../../engine/expenses';
+import { useAI, useAIReady } from '../../store/ai';
 import { dayColor } from '../map/colors';
 
 const NAV = [
@@ -28,6 +29,8 @@ export default function AppShell() {
   const name = useSettings((s) => s.displayName);
   const trips = useAllTrips();
   const recent = trips.slice(0, 6);
+  const aiOn = useAIReady();
+  const aiModel = useAI((s) => s.model);
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
@@ -111,12 +114,17 @@ export default function AppShell() {
         )}
       </div>
       <div className="space-y-2 border-t border-line p-3">
-        <div className="flex items-start gap-2 rounded-lg bg-sunken/70 px-3 py-2.5 text-[12px] text-muted">
+        <Link to="/app/settings#ai" className="flex items-start gap-2 rounded-lg bg-sunken/70 px-3 py-2.5 text-[12px] text-muted hover:bg-sunken">
           <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
-          <span>
-            <span className="font-semibold text-ink-2">AI assistant</span> arrives in phase 2, powered by Gemini.
+          <span className="min-w-0">
+            <span className="flex items-center gap-1.5 font-semibold text-ink-2">
+              Gemini AI
+              <span className={clsx('h-1.5 w-1.5 rounded-full', aiOn ? 'bg-ok' : 'bg-line-strong')} />
+              <span className="font-normal text-muted">{aiOn ? 'On' : 'Off'}</span>
+            </span>
+            <span className="block truncate">{aiOn ? `Using ${aiModel}` : 'Set up the trip assistant'}</span>
           </span>
-        </div>
+        </Link>
         <NavLink
           to="/app/settings"
           className={({ isActive }) => clsx('flex items-center gap-2.5 rounded-lg px-2 py-1.5', isActive ? 'bg-sunken' : 'hover:bg-sunken')}

@@ -1,0 +1,12 @@
+name = "itinera-ai"
+main = "cloudflare-worker.js"
+compatibility_date = "2025-06-01"
+
+[vars]
+# Your GitHub Pages origin (scheme + host, no path) and local dev.
+ALLOWED_ORIGINS = "https://revanthreddyabbati.github.io,http://localhost:5173"
+# Optional: restrict which models the proxy will call. Leave empty to allow any.
+ALLOWED_MODELS = "gemini-3.6-flash,gemini-3.8-flash,gemini-3.5-flash-lite"
+
+# The API key is a secret, never put it in this file:
+#   npx wrangler secret put GEMINI_API_KEY

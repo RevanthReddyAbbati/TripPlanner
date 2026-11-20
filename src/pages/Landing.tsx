@@ -63,7 +63,7 @@ export default function Landing() {
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.05fr] lg:py-24">
           <div>
             <a href="#roadmap" className="mb-5 inline-flex items-center gap-2 rounded-full border border-line-strong bg-surface px-3 py-1 text-[12.5px] text-ink-2 shadow-card hover:bg-sunken">
-              <Sparkles className="h-3.5 w-3.5 text-accent" /> AI assistant with Gemini is coming next
+              <Sparkles className="h-3.5 w-3.5 text-accent" /> New: AI trip assistant powered by Gemini
               <ArrowRight className="h-3.5 w-3.5" />
             </a>
             <h1 className="text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] sm:text-[54px]">
@@ -227,18 +227,19 @@ export default function Landing() {
               ))}
             </ul>
           </div>
-          <div className="rounded-2xl border border-dashed border-line-strong p-7">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-warn-soft px-2.5 py-0.5 text-[12px] font-semibold text-warn">
-              <Sparkles className="h-3.5 w-3.5" /> Phase 2
+          <div className="rounded-2xl border border-accent/30 bg-surface p-7 shadow-card">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-warn-soft px-2.5 py-0.5 text-[12px] font-semibold text-accent">
+              <Sparkles className="h-3.5 w-3.5" /> New · Powered by Gemini
             </div>
-            <h3 className="mt-3 text-[20px] font-semibold">AI assistant with Gemini</h3>
-            <ul className="mt-5 space-y-2.5 text-[14px] text-muted">
-              {['Suggests places that suit your group', 'Rewrites a day when you ask in plain words', 'Answers questions about your trip', 'Accounts and sync across devices'].map((x) => (
+            <h3 className="mt-3 text-[20px] font-semibold">AI trip assistant</h3>
+            <ul className="mt-5 space-y-2.5 text-[14px]">
+              {['Ask anything about your trip, budget or who owes whom', 'Change the plan in plain words, then preview and apply', 'Place ideas that suit your group', 'Scan a bill or UPI screenshot into an expense', 'Describe a trip in one sentence and get the form filled'].map((x) => (
                 <li key={x} className="flex gap-2.5">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-muted" /> {x}
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" /> {x}
                 </li>
               ))}
             </ul>
+            <p className="mt-5 text-[12.5px] text-muted">Next: accounts and sync across devices.</p>
           </div>
         </div>
       </section>

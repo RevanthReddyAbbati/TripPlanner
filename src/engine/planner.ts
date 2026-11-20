@@ -1,5 +1,5 @@
 // Rule-based trip planner (phase 1). Deterministic: the same input always yields the same plan.
-// Phase 2 will let Gemini propose places and ordering, then hand them to this engine for timing and costs.
+// Gemini (services/ai) can propose places and edits; this engine still does all timing and costing.
 import type { DayPlan, Destination, GeoPoint, Leg, Place, Stop, Trip, TripInput } from '../types';
 import { centroid, haversineKm, roadKm, transferMinutes } from '../lib/geo';
 import { addDays, fmtDuration, monthOf, toMin } from '../lib/time';

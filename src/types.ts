@@ -36,7 +36,7 @@ export interface Place extends GeoPoint {
   /** 1 (minor) – 5 (must see). */
   priority: number;
   note?: string;
-  source: 'catalog' | 'osm' | 'custom';
+  source: 'catalog' | 'osm' | 'custom' | 'ai';
 }
 
 export interface Destination extends GeoPoint {

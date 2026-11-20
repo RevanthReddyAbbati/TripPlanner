@@ -9,6 +9,7 @@ import { Avatar } from '../ui/Kit';
 import { inr } from '../../lib/format';
 import { toISODate } from '../../lib/time';
 import { tripEndDate } from '../../engine/expenses';
+import { AiReceiptScan } from '../ai/AiReceiptScan';
 
 export type ExpenseDraft = Omit<Expense, 'id' | 'createdAt'>;
 
@@ -114,6 +115,23 @@ export function ExpenseModal({
           submit();
         }}
       >
+        {!editingId && (
+          <AiReceiptScan
+            onResult={(r) => {
+              setAmountText(String(r.amount));
+              setD((s) => ({
+                ...s,
+                title: r.title,
+                category: r.category,
+                method: r.method ?? s.method,
+                date: r.date && days.includes(r.date) ? r.date : s.date,
+                note: r.note ?? s.note,
+              }));
+              setError('');
+            }}
+          />
+        )}
+
         <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
           <div>
             <label htmlFor="x-amount" className="label">

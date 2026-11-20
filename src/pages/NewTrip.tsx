@@ -20,6 +20,7 @@ import { useToast } from '../components/ui/Toast';
 import { inr, plural } from '../lib/format';
 import { fmtDate, fmtDuration, nextSaturday } from '../lib/time';
 import { MODES } from '../engine/rates';
+import { AiDescribeTrip, type DescribeResult } from '../components/ai/AiDescribeTrip';
 
 const STEPS = ['Where', 'When and who', 'How you travel', 'Review'] as const;
 
@@ -107,6 +108,60 @@ export default function NewTrip() {
     if (input.destinations.some((x) => x.id === d.id)) return;
     setInput((s) => ({ ...s, destinations: [...s.destinations, d], name: s.name || `Trip to ${d.name}` }));
   };
+  const applyDescription = ({ request: r, discovered, missed }: DescribeResult) => {
+    const catalogDests = r.destinationIds.map((id) => findDestination(id)).filter(Boolean) as Destination[];
+    const dests = [...catalogDests, ...discovered];
+    const filled: string[] = [];
+    {
+      const s = input;
+      const next: TripInput = { ...s };
+      if (dests.length) {
+        next.destinations = dests;
+        filled.push(plural(dests.length, 'destination'));
+      }
+      if (r.origin) {
+        next.origin = r.origin;
+        filled.push(`from ${r.origin.name}`);
+      }
+      if (r.name) next.name = r.name;
+      else if (dests.length && !s.name) next.name = `Trip to ${dests.map((d) => d.name).join(' and ')}`;
+      if (r.startDate) {
+        next.startDate = r.startDate;
+        filled.push(`starting ${fmtDate(r.startDate)}`);
+      }
+      if (r.days) {
+        next.days = r.days;
+        filled.push(plural(r.days, 'day'));
+      }
+      if (r.travelers) {
+        next.travelers = r.travelers;
+        filled.push(plural(r.travelers, 'traveller'));
+      }
+      if (r.budgetPerPerson) {
+        next.budgetPerPerson = r.budgetPerPerson;
+        filled.push(`${inr(r.budgetPerPerson)} each`);
+      }
+      if (r.transport) next.transport = r.transport;
+      if (r.returnTransport || r.transport) next.returnTransport = r.returnTransport ?? r.transport!;
+      if (r.transport) filled.push(MODES[r.transport].label.toLowerCase());
+      if (r.localTransport) next.localTransport = r.localTransport;
+      if (r.stay) next.stay = r.stay;
+      if (r.food) next.food = r.food;
+      if (r.pace) next.pace = r.pace;
+      if (r.interests?.length) next.interests = r.interests;
+      setInput(next);
+    }
+    if (r.transport && r.returnTransport && r.returnTransport !== r.transport) setSameReturn(false);
+    else if (r.transport) setSameReturn(true);
+    const missText = missed.length ? ` Couldn't find ${missed.join(', ')} on the map.` : '';
+    if (dests.length) {
+      toast(`Filled in ${filled.join(', ')}. Review and create the plan.${missText}`);
+      setStep(3);
+    } else {
+      toast(`No destinations recognised. Add them below.${missText}`, missed.length ? 'error' : 'ok');
+    }
+  };
+
   const moveDest = (i: number, dir: -1 | 1) =>
     setInput((s) => {
       const a = [...s.destinations];
@@ -186,6 +241,7 @@ export default function NewTrip() {
         <div className="card min-w-0 p-5 sm:p-6">
           {step === 0 && (
             <div className="space-y-6">
+              <AiDescribeTrip onApply={applyDescription} />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Trip name" htmlFor="trip-name">
                   <input id="trip-name" className="input" placeholder="e.g. Goa with college friends" value={input.name} onChange={(e) => set('name', e.target.value)} />
