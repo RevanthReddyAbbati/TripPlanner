@@ -22,14 +22,14 @@ export function Modal({
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[1500] flex items-end justify-center bg-[rgb(9_12_18/0.5)] p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="backdrop-in fixed inset-0 z-[1500] flex items-end justify-center bg-[rgb(9_12_18/0.5)] p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className={clsx(
-          'animate-in flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-pop sm:rounded-2xl',
+          'dialog-in flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-pop sm:rounded-2xl',
           size === 'sm' && 'sm:max-w-md',
           size === 'md' && 'sm:max-w-xl',
           size === 'lg' && 'sm:max-w-3xl',
@@ -40,7 +40,7 @@ export function Modal({
             <h2 className="text-[16px] font-semibold">{title}</h2>
             {description && <p className="mt-0.5 text-[13px] text-muted">{description}</p>}
           </div>
-          <button aria-label="Close" onClick={onClose} className="-mr-1 rounded-md p-1 text-muted hover:bg-sunken hover:text-ink">
+          <button aria-label="Close" onClick={onClose} className="-mr-1 rounded-md p-1 text-muted transition-colors hover:bg-sunken hover:text-ink">
             <X className="h-5 w-5" />
           </button>
         </div>

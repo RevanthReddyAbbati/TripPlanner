@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
+import { DestinationPhoto } from '../components/ui/Photo';
 import { ArrowRight, CalendarCheck, MapPin } from 'lucide-react';
 import type { Interest } from '../types';
 import { DESTINATIONS } from '../data/destinations';
@@ -45,22 +46,15 @@ export default function Explore() {
       {list.length === 0 ? (
         <p className="card p-8 text-center text-muted">No destinations match these filters.</p>
       ) : (
-        <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="stagger grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {list.map((d, idx) => {
             const top = [...d.places].sort((a, b) => b.priority - a.priority).slice(0, 4);
             const good = d.bestMonths.includes(thisMonth);
             const c = dayColor(idx);
             return (
-              <li key={d.id} className="card flex flex-col overflow-hidden">
-                <div className="relative h-24 overflow-hidden" style={{ background: `linear-gradient(135deg, ${c}, ${c}aa 60%, ${c}55)` }}>
-                  <svg className="absolute inset-0 h-full w-full opacity-25" aria-hidden="true">
-                    <defs>
-                      <pattern id={`p-${d.id}`} width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
-                        <path d="M0 11h22" stroke="#fff" strokeWidth="1" />
-                      </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill={`url(#p-${d.id})`} />
-                  </svg>
+              <li key={d.id} style={{ '--i': idx } as CSSProperties} className="lift group card flex flex-col overflow-hidden hover:border-line-strong">
+                <DestinationPhoto dest={d} color={c} zoomOnHover priority={idx < 3} sizes="(min-width: 1280px) 400px, (min-width: 640px) 50vw, 100vw" className="h-44">
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 to-transparent" />
                   <div className="absolute bottom-3 left-5 right-5 flex items-end justify-between gap-2 text-white">
                     <div>
                       <h2 className="text-[19px] font-semibold drop-shadow-sm">{d.name}</h2>
@@ -74,7 +68,7 @@ export default function Explore() {
                       </span>
                     )}
                   </div>
-                </div>
+                </DestinationPhoto>
                 <div className="flex flex-1 flex-col p-5">
                 <p className="text-[13.5px] text-muted">{d.summary}</p>
                 <div className="mt-3 flex gap-0.5" aria-label="Best months">
@@ -92,8 +86,8 @@ export default function Explore() {
                 </div>
                 <ul className="mt-4 space-y-1 text-[13.5px]">
                   {top.map((p) => (
-                    <li key={p.id} className="truncate">
-                      · {p.name}
+                    <li key={p.id} className="flex items-center gap-2 truncate">
+                      <span className="h-1 w-1 shrink-0 rounded-full bg-muted" /> {p.name}
                     </li>
                   ))}
                 </ul>

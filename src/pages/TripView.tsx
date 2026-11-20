@@ -12,7 +12,8 @@ import { TripWorkspace } from '../components/trip/TripWorkspace';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
-import { encodeTrip, exportICS, exportJSON, shareUrl } from '../lib/share';
+import { encodeTrip, exportICS, exportJSON, shareableTrip, shareUrl } from '../lib/share';
+import { TripCover } from '../components/trip/TripCover';
 import { STATUS_OPTIONS } from '../components/trip/status';
 
 function PhaseBadge({ trip }: { trip: Trip }) {
@@ -31,6 +32,7 @@ export default function TripView() {
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareLink, setShareLink] = useState('');
+  const [shareMoney, setShareMoney] = useState(false);
   const [, setParams] = useSearchParams();
 
   if (!trip || !id) {
@@ -48,7 +50,8 @@ export default function TripView() {
   }
 
   const share = async () => {
-    const url = shareUrl(await encodeTrip(trip));
+    setShareMoney(false);
+    const url = shareUrl(await encodeTrip(shareableTrip(trip, { includeMoney: false })));
     setShareLink(url);
     try {
       await navigator.clipboard.writeText(url);
@@ -67,6 +70,7 @@ export default function TripView() {
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="truncate text-ink-2">{trip.input.name}</span>
       </nav>
+      <TripCover trip={trip} />
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-[min(100%,26rem)] flex-1">
           <input
@@ -117,7 +121,7 @@ export default function TripView() {
             {menu && (
               <>
                 <div className="fixed inset-0 z-[1000]" onClick={() => setMenu(false)} />
-                <div role="menu" className="absolute right-0 z-[1001] mt-1 w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-pop">
+                <div role="menu" className="menu-in absolute right-0 z-[1001] mt-1 w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-pop">
                   <MenuItem icon={<CalendarPlus className="h-4 w-4" />} onClick={() => { exportICS(trip); setMenu(false); }}>
                     Add to calendar (.ics)
                   </MenuItem>
@@ -204,6 +208,22 @@ export default function TripView() {
 
       <Modal open={!!shareLink} onClose={() => setShareLink('')} title="Share this trip" footer={<Button onClick={() => setShareLink('')}>Done</Button>}>
         <p className="mb-3 text-[14px]">Anyone with this link can view the plan and save their own copy. The whole trip is inside the link, so nothing is uploaded.</p>
+        <label className="mb-4 flex items-start gap-3 rounded-lg border border-line bg-sunken/50 p-3 text-[13.5px]">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-[rgb(var(--brand))]"
+            checked={shareMoney}
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setShareMoney(on);
+              setShareLink(shareUrl(await encodeTrip(shareableTrip(trip, { includeMoney: on }))));
+            }}
+          />
+          <span>
+            <span className="font-medium">Include expenses and bookings</span>
+            <span className="block text-[12.5px] text-muted">Off by default. Bookings can hold PNRs and confirmation numbers, so only include them for people on the trip.</span>
+          </span>
+        </label>
         <div className="flex gap-2">
           <input readOnly className="input font-mono text-[12px]" value={shareLink} onFocus={(e) => e.target.select()} aria-label="Share link" />
           <Button

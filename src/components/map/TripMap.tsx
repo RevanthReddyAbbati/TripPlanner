@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Crosshair, LocateFixed, MapPinPlus, Maximize2, X } from 'lucide-react';
@@ -267,7 +267,7 @@ function DayRoutes({ trip, day, pins }: { trip: Trip; day: number | 'all'; pins:
     const pts = pins.map((p) => [p.stop.lat!, p.stop.lon!] as [number, number]);
     if (pts.length < 2) return null;
     return route ? (
-      <Polyline positions={route} pathOptions={{ color: dayColor(day), weight: 5, opacity: 0.85 }} />
+      <DrawnPolyline key={`r-${day}-${route.length}`} positions={route} pathOptions={{ color: dayColor(day), weight: 5, opacity: 0.85 }} />
     ) : (
       <Polyline positions={pts} pathOptions={{ color: dayColor(day), weight: 3, opacity: 0.6 }} />
     );
@@ -281,6 +281,25 @@ function DayRoutes({ trip, day, pins }: { trip: Trip; day: number | 'all'; pins:
       })}
     </>
   );
+}
+
+/** A polyline that draws itself once when it appears, then behaves like a normal path (zoom-safe). */
+function DrawnPolyline(props: ComponentProps<typeof Polyline>) {
+  const ref = useRef<L.Polyline>(null);
+  useEffect(() => {
+    const el = ref.current?.getElement() as SVGPathElement | undefined;
+    if (!el || typeof el.getTotalLength !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const len = Math.ceil(el.getTotalLength());
+    el.style.setProperty('--len', String(len));
+    el.classList.add('route-draw');
+    const done = () => {
+      el.classList.remove('route-draw');
+      el.style.removeProperty('--len');
+    };
+    el.addEventListener('animationend', done, { once: true });
+    return () => el.removeEventListener('animationend', done);
+  }, []);
+  return <Polyline ref={ref} {...props} />;
 }
 
 const iconCache = new Map<string, L.DivIcon>();
