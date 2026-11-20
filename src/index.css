@@ -1,0 +1,154 @@
+@import 'leaflet/dist/leaflet.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Palette: deep lagoon teal brand, mango accent, neutrals biased slightly toward the brand hue. */
+:root {
+  --bg: 244 247 246;
+  --surface: 255 255 255;
+  --sunken: 236 241 240;
+  --ink: 16 37 40;
+  --muted: 88 111 114;
+  --line: 214 224 223;
+  --brand: 15 92 99;
+  --brand-ink: 255 255 255;
+  --brand-soft: 222 238 237;
+  --accent: 214 125 38;
+  --ok: 37 128 82;
+  --warn: 178 112 8;
+  --bad: 190 46 40;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: 12 22 24;
+  --surface: 19 33 36;
+  --sunken: 15 27 29;
+  --ink: 226 237 235;
+  --muted: 145 168 169;
+  --line: 38 58 61;
+  --brand: 94 196 196;
+  --brand-ink: 8 26 28;
+  --brand-soft: 24 56 58;
+  --accent: 242 166 90;
+  --ok: 110 211 154;
+  --warn: 240 190 90;
+  --bad: 255 128 118;
+  color-scheme: dark;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-size: 15px;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 2px;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator {
+    filter: var(--date-icon-filter, none);
+  }
+  :root[data-theme='dark'] input[type='date'] {
+    --date-icon-filter: invert(0.8);
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-line rounded-xl;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-[14px] text-ink placeholder:text-muted/70
+      focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
+  }
+  .label {
+    @apply mb-1.5 block text-[13px] font-medium text-ink;
+  }
+  .hint {
+    @apply mt-1 text-[12.5px] text-muted;
+  }
+  .eyebrow {
+    @apply font-mono text-[11.5px] uppercase tracking-[0.08em] text-muted;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Leaflet theming */
+.leaflet-container {
+  font: inherit;
+  background: rgb(var(--sunken));
+}
+:root[data-theme='dark'] .leaflet-tile-pane {
+  filter: brightness(0.72) contrast(1.15) saturate(0.8) hue-rotate(180deg) invert(1);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgb(var(--surface));
+  color: rgb(var(--ink));
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.leaflet-bar a {
+  background: rgb(var(--surface));
+  color: rgb(var(--ink));
+  border-color: rgb(var(--line));
+}
+.leaflet-control-attribution {
+  background: rgb(var(--surface) / 0.85) !important;
+  color: rgb(var(--muted));
+}
+.leaflet-control-attribution a {
+  color: rgb(var(--brand));
+}
+.pin {
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font: 600 11px/1 Inter, system-ui, sans-serif;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+.pin.dim {
+  opacity: 0.35;
+}
+.pin.active {
+  outline: 3px solid rgb(var(--ink));
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
