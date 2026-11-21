@@ -3,7 +3,8 @@
 // route has no data the guide still explains every step and links to live search pages.
 import type { Leg, LocalTransport, TransportMode, Trip } from '../types';
 import type { CityHubs, Corridor, DestinationAccess, LastMile, TrainService, Weekday } from '../data/transport/types';
-import { accessFor, corridor, hubsFor } from '../data/transport';
+import { ACCESS, HUBS, accessFor, corridor, hubsFor } from '../data/transport';
+import { roadKm } from '../lib/geo';
 import { fmtDuration, fmtTime, toMin } from '../lib/time';
 import { inr } from '../lib/format';
 import { MODES } from './rates';
@@ -42,6 +43,8 @@ export interface ServiceOption {
   arrivalDayOffset?: number;
   durationMin: number;
   runsOnText?: string;
+  /** Raw running days, for calendars. */
+  runsOn?: Weekday[] | 'daily';
   /** False when the service does not run on the travel weekday. */
   runsOnTravelDay?: boolean;
   classes?: string[];
@@ -160,6 +163,7 @@ function trainOption(t: TrainService, weekday: Weekday, stationName: (code: stri
     arrivalDayOffset: t.arrivalDayOffset,
     durationMin: t.durationMin,
     runsOnText: runsOnText(t.runsOn),
+    runsOn: t.runsOn,
     runsOnTravelDay: t.runsOn === 'daily' || t.runsOn.includes(weekday),
     classes: t.classes,
     fareText,
@@ -175,7 +179,11 @@ function stationNamer(look: TransportLookups, leg: Leg): (code: string) => strin
     if (end.ref?.kind === 'city') look.hubsFor(end.ref.id)?.stations.forEach((s) => add(s.code, s.name));
     if (end.ref?.kind === 'destination') look.accessFor(end.ref.id)?.arrivals.forEach((a) => a.kind === 'rail' && add(a.code, a.hub));
   }
-  return (code) => names.get(code.toUpperCase()) ?? code;
+  // Fall back to every known station (a Goa train may stop at a station listed under another destination).
+  const anywhere = (code: string) =>
+    ACCESS.flatMap((x) => x.arrivals).find((a) => a.kind === 'rail' && a.code?.toUpperCase() === code.toUpperCase())?.hub ??
+    HUBS.flatMap((h) => h.stations).find((s) => s.code.toUpperCase() === code.toUpperCase())?.name;
+  return (code) => names.get(code.toUpperCase()) ?? anywhere(code) ?? code;
 }
 
 function fmtRange([a, b]: [number, number]): string {
@@ -188,10 +196,28 @@ function lastMileText(lm: LastMile): string {
   return `${best.how}: about ${fmtDuration(best.minutes)}, ${fmtRange(best.costINR)}${best.perVehicle ? ' per vehicle' : ' per person'}.`;
 }
 
-function pickArrival(access: DestinationAccess | undefined, kind: LastMile['kind'], code?: string): LastMile | undefined {
-  if (!access) return undefined;
-  const list = access.arrivals.filter((a) => a.kind === kind);
-  return (code && list.find((a) => a.code?.toUpperCase() === code.toUpperCase())) || list[0];
+function pickArrival(access: DestinationAccess | undefined, kind: LastMile['kind'], code?: string, to?: { lat: number; lon: number }): LastMile | undefined {
+  const list = (access?.arrivals ?? []).filter((a) => a.kind === kind);
+  if (!code) return list[0];
+  const exact = list.find((a) => a.code?.toUpperCase() === code.toUpperCase());
+  if (exact) return exact;
+  // The train stops at a station this destination doesn't list (e.g. Madgaon for North Goa):
+  // describe the ride from THAT station, never from a different one.
+  const other = ACCESS.flatMap((x) => x.arrivals).find((a) => a.code?.toUpperCase() === code.toUpperCase());
+  if (other && to) {
+    const km = roadKm(other, to);
+    const perCar = Math.max(400, Math.round((km * 22) / 50) * 50);
+    return {
+      hub: other.hub,
+      kind: other.kind,
+      code: other.code,
+      lat: other.lat,
+      lon: other.lon,
+      distanceKm: km,
+      options: [{ how: 'Prepaid taxi or app cab from the station exit', minutes: Math.round((km / 32) * 60 + 10), costINR: [perCar, Math.round(perCar * 1.4)], perVehicle: true }],
+    };
+  }
+  return list[0];
 }
 
 const TRAIN_TIPS = [
@@ -328,7 +354,11 @@ export function buildJourney(trip: Trip, rawLeg: Leg, look: TransportLookups = D
   const depStation = best ? { code: best.fromCode, name: stationName(best.fromCode) } : firstStation(fromCity, fromAccess);
   const arrStation = best ? { code: best.toCode, name: stationName(best.toCode) } : firstStation(toCity, toAccess);
   if (kind === 'train' || trains.length) {
-    if (depStation && arrStation) liveLinks.push({ label: 'All trains on this route (erail)', url: erailTrainsBetween(depStation, arrStation) });
+    if (depStation && arrStation) {
+      const cls = leg.mode === 'train_sl' ? 'SL' : leg.mode === 'train_3a' ? '3A' : undefined;
+      const dayLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      liveLinks.push({ label: `Trains and seats on ${dayLabel} (erail)`, url: erailTrainsBetween(depStation, arrStation, { date, cls }) });
+    }
     liveLinks.push({ label: 'Book on IRCTC', url: IRCTC_HOME });
   }
   if (kind === 'bus' || buses.length) liveLinks.push({ label: 'Buses on redBus', url: redbusRoute(busCity(leg.from.name), busCity(leg.to.name)) });
@@ -353,7 +383,7 @@ export function buildJourney(trip: Trip, rawLeg: Leg, look: TransportLookups = D
       links: liveLinks.filter((l) => /erail|IRCTC/.test(l.label)),
     });
     const hub = fromCity?.stations.find((s) => best && s.code.toUpperCase() === best.fromCode.toUpperCase()) ?? fromCity?.stations[0];
-    const fromLm = pickArrival(fromAccess, 'rail', best?.fromCode);
+    const fromLm = pickArrival(fromAccess, 'rail', best?.fromCode, leg.from);
     const reach = (best ? toMin(best.departs) : departMin) - 45;
     steps.push({
       icon: 'go',
@@ -506,7 +536,7 @@ function addLastMile(steps: JourneyStep[], leg: Leg, access: DestinationAccess |
     steps.push({ icon: 'arrive', title: `Arrive at your stay in ${leg.to.name}`, detail: 'Share your stay location with the driver on Google Maps before you set off, and pay the agreed fare at the end.' });
     return;
   }
-  const lm = pickArrival(access, kind, code) ?? access?.arrivals[0];
+  const lm = pickArrival(access, kind, code, leg.to) ?? access?.arrivals[0];
   if (lm) {
     steps.push({
       icon: 'lastmile',

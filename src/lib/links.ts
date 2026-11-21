@@ -3,8 +3,8 @@
 //
 // Formats:
 // - redBus route pages: https://www.redbus.in/bus-tickets/{from}-to-{to} (verified, e.g. hyderabad-to-goa).
-// - erail trains between stations: https://erail.in/trains-between-stations/{name}-{CODE}/{name}-{CODE}
-//   (pattern seen on erail's own indexed pages; we also always offer a Google search fallback).
+// - erail trains between stations: https://erail.in/trains-between-stations/{name}-{CODE}/{name}-{CODE}?date=DD-Mon-YYYY
+//   (verified Nov 2026, including the date parameter; we also always offer a Google search fallback).
 // - Google Flights accepts free-text queries via ?q=.
 
 const slugify = (s: string) =>
@@ -14,11 +14,32 @@ const slugify = (s: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
-const under = (s: string) => slugify(s).replace(/-/g, '_');
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** All trains between two stations on erail (live timetable, seats, running days). */
-export function erailTrainsBetween(from: { code: string; name: string }, to: { code: string; name: string }): string {
-  return `https://erail.in/trains-between-stations/${under(from.name)}-${encodeURIComponent(from.code.toUpperCase())}/${under(to.name)}-${encodeURIComponent(to.code.toUpperCase())}`;
+/** "2026-11-28" → "28-Nov-2026", the format erail's date picker uses. */
+export function erailDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${String(d).padStart(2, '0')}-${MONTHS[m - 1]}-${y}`;
+}
+
+/** erail's class picker uses numeric codes (checked Nov 2026); unknown classes fall back to all. */
+const ERAIL_CLASS: Record<string, string> = { '1A': '0', '2A': '1', '3A': '2', CC: '3', FC: '4', SL: '5', '2S': '6', '3E': '7', GN: '8', EA: '9', EC: '10' };
+
+/**
+ * All trains between two stations on erail, for a specific date and class when given.
+ * Verified format (Nov 2026): /trains-between-stations/secunderabad-jn-SC/madgaon-MAO?date=26-Nov-2026&class=5&quota=GN
+ * The station is resolved by its code, so any name slug works. The page shows which trains run on
+ * that date, with fares and seat status per class.
+ */
+export function erailTrainsBetween(
+  from: { code: string; name: string },
+  to: { code: string; name: string },
+  opts: { date?: string; cls?: string } = {},
+): string {
+  const path = `https://erail.in/trains-between-stations/${slugify(from.name)}-${encodeURIComponent(from.code.toUpperCase())}/${slugify(to.name)}-${encodeURIComponent(to.code.toUpperCase())}`;
+  if (!opts.date) return path;
+  const q = new URLSearchParams({ date: erailDate(opts.date), class: (opts.cls && ERAIL_CLASS[opts.cls.toUpperCase()]) ?? '-1', quota: 'GN' });
+  return `${path}?${q}`;
 }
 
 /** Live running status and schedule of one train. */

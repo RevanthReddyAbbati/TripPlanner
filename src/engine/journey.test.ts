@@ -142,3 +142,22 @@ describe('journey guide', () => {
     expect(legForStop(trip, 0, stop.start)?.id).toBe(trip.legs[0].id);
   });
 });
+
+describe('last mile uses the station the train actually reaches', () => {
+  it('starts from Madgaon when the train ends there, even for North Goa', async () => {
+    const { generateTrip } = await import('./planner');
+    const { ORIGIN_CITIES, findDestination } = await import('../data/destinations');
+    const { buildJourney: realBuild } = await import('./journey');
+    const trip = generateTrip({
+      name: 't', origin: ORIGIN_CITIES.find((c) => c.name === 'Hyderabad')!, destinations: [findDestination('north-goa')!],
+      startDate: '2026-11-26', days: 4, travelers: 2, budgetPerPerson: 20000, transport: 'train_sl', returnTransport: 'train_sl',
+      localTransport: 'taxi', stay: 'budget', food: 'mixed', pace: 'balanced', interests: [], overnightTravel: true,
+    });
+    const plan = realBuild(trip, trip.legs[0]);
+    const best = plan.options[0];
+    if (!best || best.toLabel.indexOf('MAO') < 0) return; // data changed; nothing to assert
+    const last = plan.steps.filter((s) => s.icon === 'lastmile').at(-1)!;
+    expect(last.title).toMatch(/Madgaon/i);
+    expect(last.title).not.toMatch(/Thivim/i);
+  });
+});

@@ -8,6 +8,9 @@ import type { JourneyPlan, ServiceOption, StepIcon } from '../../engine/journey'
 import { classLabel } from '../../engine/journey';
 import { fmtDay, fmtDuration, fmtTime } from '../../lib/time';
 import { Badge } from '../ui/Fields';
+import type { Trip } from '../../types';
+import { RunCalendar, nearestRunDate } from './RunCalendar';
+import { LiveCheckPanel } from './LiveCheckPanel';
 
 const STEP_ICON: Record<StepIcon, LucideIcon> = {
   book: Ticket,
@@ -30,7 +33,7 @@ export function KindIcon({ kind, className }: { kind: JourneyPlan['kind'] | Serv
 }
 
 /** One leg of the trip, explained step by step. `compact` is used inline in the itinerary. */
-export function JourneyCard({ plan, compact, index }: { plan: JourneyPlan; compact?: boolean; index?: number }) {
+export function JourneyCard({ plan, compact, index, trip, autoRun }: { plan: JourneyPlan; compact?: boolean; index?: number; trip?: Trip; autoRun?: number }) {
   const [showAlt, setShowAlt] = useState(false);
   const [showTips, setShowTips] = useState(false);
   const best = plan.options[0];
@@ -76,11 +79,11 @@ export function JourneyCard({ plan, compact, index }: { plan: JourneyPlan; compa
         {best ? (
           <div>
             <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted">Recommended</div>
-            <ServiceRow option={best} highlight />
+            <ServiceRow option={best} highlight date={plan.date} />
             {others.length > 0 && (
               <div className="mt-2 space-y-2">
                 {others.map((o, i) => (
-                  <ServiceRow key={i} option={o} />
+                  <ServiceRow key={i} option={o} date={plan.date} />
                 ))}
               </div>
             )}
@@ -94,6 +97,8 @@ export function JourneyCard({ plan, compact, index }: { plan: JourneyPlan; compa
             </p>
           )
         )}
+
+        {trip && <LiveCheckPanel trip={trip} plan={plan} autoRun={autoRun} />}
 
         {plan.alternatives.length > 0 && (
           <div>
@@ -207,7 +212,8 @@ export function JourneyCard({ plan, compact, index }: { plan: JourneyPlan; compa
   );
 }
 
-function ServiceRow({ option: o, highlight }: { option: ServiceOption; highlight?: boolean }) {
+function ServiceRow({ option: o, highlight, date }: { option: ServiceOption; highlight?: boolean; date?: string }) {
+  const next = date && o.runsOnTravelDay === false ? nearestRunDate(o, date) : null;
   return (
     <div className={clsx('rounded-lg border px-3.5 py-3', highlight ? 'border-brand bg-brand-soft/40 shadow-[0_0_0_1px_rgb(var(--brand))]' : 'border-line bg-surface')}>
       <div className="flex flex-wrap items-center gap-2">
@@ -242,6 +248,13 @@ function ServiceRow({ option: o, highlight }: { option: ServiceOption; highlight
         ))}
         {o.fareText && <span className="rounded bg-sunken px-1.5 py-0.5 font-medium text-ink-2">{o.fareText}</span>}
       </div>
+      {date && o.kind === 'train' && <RunCalendar option={o} date={date} />}
+      {next && (
+        <p className="mt-1.5 text-[12px] font-medium text-warn">
+          Next runs {next.offset < 0 ? `${-next.offset} day${next.offset === -1 ? '' : 's'} earlier` : `${next.offset} day${next.offset === 1 ? '' : 's'} later`}, on{' '}
+          {new Date(next.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}.
+        </p>
+      )}
     </div>
   );
 }

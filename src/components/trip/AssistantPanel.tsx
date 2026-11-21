@@ -2,13 +2,13 @@
 // Plan changes are previewed first and only applied when the user clicks Apply; the engine re-times them.
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
-  ArrowRight, CalendarDays, Check, Copy, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Ticket, Users, Wallet, Wand2,
+  ArrowRight, CalendarDays, Check, Copy, Globe, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Ticket, Users, Wallet, Wand2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { Trip } from '../../types';
 import type { WorkspaceActions, WorkspaceTab } from './TripWorkspace';
 import { chat, planEdits } from '../../services/ai/provider';
-import { AIError, type Message } from '../../services/ai/gemini';
+import { AIError, type Grounding, type Message, type WebSource } from '../../services/ai/gemini';
 import { applyEdits, type EditOp } from '../../engine/aiEdits';
 import { summarize } from '../../engine/expenses';
 import { useAI, useAIReady } from '../../store/ai';
@@ -29,6 +29,38 @@ interface ChatMsg {
   role: 'user' | 'model';
   text: string;
   stopped?: boolean;
+  /** Web pages Gemini read for this answer (live web search). */
+  sources?: WebSource[];
+  /** Google searches Gemini ran for this answer. */
+  queries?: string[];
+  /** True when the answer was produced with web search on. */
+  live?: boolean;
+}
+
+const SEARCH_KEY = 'itinera-ai-search';
+
+function loadSearchPref(): boolean {
+  try {
+    return localStorage.getItem(SEARCH_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function saveSearchPref(on: boolean) {
+  try {
+    localStorage.setItem(SEARCH_KEY, on ? 'on' : 'off');
+  } catch {
+    /* storage unavailable: the choice just isn't remembered */
+  }
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
 
 interface Failure {
@@ -131,10 +163,12 @@ function PanelHeader({ mode, onMode, model, right }: { mode: Mode; onMode: (m: M
 }
 
 function Composer({
-  value, onChange, onSubmit, disabled, busy, onStop, placeholder, submitLabel, id,
+  value, onChange, onSubmit, disabled, busy, onStop, placeholder, submitLabel, id, extra,
 }: {
   value: string; onChange: (v: string) => void; onSubmit: () => void; disabled?: boolean; busy?: boolean; onStop?: () => void;
   placeholder: string; submitLabel: string; id: string;
+  /** Extra controls shown on the left of the composer's bottom bar (e.g. the web search toggle). */
+  extra?: ReactNode;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -170,8 +204,9 @@ function Composer({
           className="block max-h-[200px] w-full resize-none bg-transparent px-3.5 pt-3 text-[14px] leading-relaxed outline-none placeholder:text-muted/80 disabled:opacity-60"
         />
         <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pt-1">
-          <span className="pl-1 text-[11.5px] text-muted">
-            {value.length > MAX_CHARS * 0.8 ? `${value.length}/${MAX_CHARS}` : <span className="hidden sm:inline">Enter to send · Shift+Enter for a new line</span>}
+          <span className="flex min-w-0 items-center gap-2 pl-1 text-[11.5px] text-muted">
+            {extra}
+            {value.length > MAX_CHARS * 0.8 ? `${value.length}/${MAX_CHARS}` : <span className="hidden truncate md:inline">Enter to send · Shift+Enter for a new line</span>}
           </span>
           {busy && onStop ? (
             <Button size="sm" variant="secondary" icon={<Square className="h-3.5 w-3.5 fill-current" />} onClick={onStop}>
@@ -188,11 +223,69 @@ function Composer({
   );
 }
 
-function Footnote({ model }: { model: string }) {
+function Footnote({ model, web }: { model: string; web?: boolean }) {
   return (
     <p className="px-4 pb-3 text-center text-[11.5px] text-muted sm:px-5">
-      Gemini can make mistakes. Check prices, timings and opening hours locally. Model: {model}.
+      Gemini can make mistakes. Check prices, timings and opening hours locally.
+      {web && ' Web results can be wrong or out of date, so open the sources before you rely on them.'} Model: {model}.
     </p>
+  );
+}
+
+/** "Search the web" switch for Ask mode. */
+function SearchToggle({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  const hint = 'Lets Gemini look up live info like cancellations, weather alerts and events. Uses Google Search, may cost a little more.';
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label="Search the web"
+      title={hint}
+      disabled={disabled}
+      onClick={() => onChange(!on)}
+      className={clsx(
+        'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[12px] font-medium transition-colors disabled:opacity-60',
+        on ? 'border-brand/40 bg-brand-soft text-brand' : 'border-line-strong bg-surface text-muted hover:text-ink',
+      )}
+    >
+      <Globe className="h-3.5 w-3.5" />
+      Search the web
+      <span className={clsx('relative ml-0.5 inline-block h-3.5 w-6 rounded-full transition-colors', on ? 'bg-brand' : 'bg-line-strong')} aria-hidden="true">
+        <span className={clsx('absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-[left]', on ? 'left-3' : 'left-0.5')} />
+      </span>
+    </button>
+  );
+}
+
+/** Numbered links to the pages behind a live answer, plus the searches Gemini ran. */
+function SourceList({ sources, queries }: { sources: WebSource[]; queries?: string[] }) {
+  return (
+    <div className="mt-2.5 border-t border-line pt-2">
+      <div className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">Sources</div>
+      <ol className="flex flex-wrap gap-1.5">
+        {sources.slice(0, 8).map((s, i) => (
+          <li key={s.url} className="min-w-0 max-w-full">
+            <a
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={s.title}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line-strong bg-surface px-2 py-0.5 text-[12px] text-ink-2 transition-colors hover:border-brand hover:text-brand"
+            >
+              <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-sunken text-[10px] font-semibold tabular">{i + 1}</span>
+              {/* Grounding URLs are Google redirect links; the title holds the real site name. */}
+              <span className="truncate">{s.title || hostOf(s.url)}</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+      {queries && queries.length > 0 && (
+        <p className="mt-1.5 truncate text-[11.5px] text-muted" title={queries.join(' · ')}>
+          Searched: {queries.slice(0, 3).join(' · ')}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -221,7 +314,17 @@ function loadChat(tripId: string): ChatMsg[] {
   try {
     const raw = sessionStorage.getItem(storageKey(tripId));
     const parsed = raw ? (JSON.parse(raw) as ChatMsg[]) : [];
-    return Array.isArray(parsed) ? parsed.filter((m) => m && (m.role === 'user' || m.role === 'model') && typeof m.text === 'string') : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((m) => m && (m.role === 'user' || m.role === 'model') && typeof m.text === 'string')
+      .map((m) => ({
+        ...m,
+        // Older saved chats have no sources; keep only well-formed https links.
+        sources: Array.isArray(m.sources)
+          ? m.sources.filter((s) => s && typeof s.url === 'string' && /^https:\/\//.test(s.url)).map((s) => ({ url: s.url, title: String(s.title ?? '') }))
+          : undefined,
+        queries: Array.isArray(m.queries) ? m.queries.filter((q) => typeof q === 'string') : undefined,
+      }));
   } catch {
     return [];
   }
@@ -251,13 +354,16 @@ function toHistory(msgs: ChatMsg[]): Message[] {
   return out;
 }
 
-function suggestedPrompts(trip: Trip): string[] {
+function suggestedPrompts(trip: Trip, search: boolean): string[] {
   const dests = trip.input.destinations;
   const first = dests[0]?.name ?? 'the first stop';
   const last = dests[dests.length - 1]?.name ?? first;
   const D = trip.days.length;
   const relaxedDay = Math.min(3, Math.max(1, D - 1));
-  return [
+  const startDate = trip.days[0]?.date ?? trip.input.startDate;
+  const nice = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const endDate = trip.days[D - 1]?.date ?? startDate;
+  const base = [
     `What should we pack for ${last}?`,
     'How are we doing on budget?',
     `Suggest a cheaper way to get back to ${trip.input.origin.name}`,
@@ -265,6 +371,12 @@ function suggestedPrompts(trip: Trip): string[] {
     'Who owes whom right now?',
     `Best local food to try in ${first}`,
   ];
+  // These benefit from live web search.
+  const live = [
+    `Any train cancellations or diversions between ${trip.input.origin.name} and ${first} on ${nice(startDate)}?`,
+    `Events or festivals in ${first} between ${nice(startDate)} and ${nice(endDate)}?`,
+  ];
+  return search ? [...live, ...base] : base;
 }
 
 function ChatView({ trip, mode, onMode, model }: { trip: Trip; mode: Mode; onMode: (m: Mode) => void; model: string }) {
@@ -275,6 +387,7 @@ function ChatView({ trip, mode, onMode, model }: { trip: Trip; mode: Mode; onMod
   const [draft, setDraft] = useState('');
   const [failure, setFailure] = useState<Failure | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [search, setSearch] = useState<boolean>(loadSearchPref);
   const ctrlRef = useRef<AbortController | null>(null);
   const draftRef = useRef('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -295,6 +408,8 @@ function ChatView({ trip, mode, onMode, model }: { trip: Trip; mode: Mode; onMod
     setFailure(null);
     setDraft('');
     draftRef.current = '';
+    const useSearch = search;
+    let grounding: Grounding = { sources: [], queries: [] };
     try {
       const full = await chat(
         tripRef.current,
@@ -304,8 +419,19 @@ function ChatView({ trip, mode, onMode, model }: { trip: Trip; mode: Mode; onMod
           setDraft(t);
         },
         ctrl.signal,
+        { search: useSearch, onGrounding: (g) => (grounding = g) },
       );
-      setMsgs((m) => [...m, { id: uid('m_'), role: 'model', text: full.trim() || "I couldn't come up with an answer. Try rephrasing." }]);
+      setMsgs((m) => [
+        ...m,
+        {
+          id: uid('m_'),
+          role: 'model',
+          text: full.trim() || "I couldn't come up with an answer. Try rephrasing.",
+          live: useSearch || undefined,
+          sources: grounding.sources.length ? grounding.sources : undefined,
+          queries: grounding.queries.length ? grounding.queries : undefined,
+        },
+      ]);
     } catch (e) {
       if (isAbort(e)) {
         const partial = draftRef.current.trim();
@@ -358,7 +484,7 @@ function ChatView({ trip, mode, onMode, model }: { trip: Trip; mode: Mode; onMod
   };
 
   const me = trip.travelers[0] ?? { name: 'You', color: '#2557d6' };
-  const prompts = useMemo(() => suggestedPrompts(trip), [trip]);
+  const prompts = useMemo(() => suggestedPrompts(trip, search), [trip, search]);
   const empty = msgs.length === 0 && !busy;
 
   return (
@@ -409,8 +535,14 @@ function ChatView({ trip, mode, onMode, model }: { trip: Trip; mode: Mode; onMod
                   <AssistantAvatar />
                   <div className="min-w-0 max-w-[92%] flex-1">
                     <div className="rounded-2xl rounded-tl-md border border-line bg-sunken/50 px-3.5 py-2.5">
+                      {(m.live || (m.sources && m.sources.length > 0)) && (
+                        <span className="mb-1.5 inline-flex items-center gap-1 rounded-md bg-brand-soft px-1.5 py-0.5 text-[11px] font-semibold text-brand ring-1 ring-inset ring-brand/20">
+                          <Globe className="h-3 w-3" /> Live
+                        </span>
+                      )}
                       <Markdown text={m.text} />
                       {m.stopped && <p className="mt-2 text-[12px] italic text-muted">Stopped before finishing.</p>}
+                      {m.sources && m.sources.length > 0 && <SourceList sources={m.sources} queries={m.queries} />}
                     </div>
                     <div className="mt-1 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                       <button type="button" onClick={() => copy(m)} className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[12px] text-muted hover:bg-sunken hover:text-ink">
@@ -447,8 +579,18 @@ function ChatView({ trip, mode, onMode, model }: { trip: Trip; mode: Mode; onMod
         onStop={() => ctrlRef.current?.abort()}
         placeholder="Ask about your trip…"
         submitLabel="Send"
+        extra={
+          <SearchToggle
+            on={search}
+            disabled={busy}
+            onChange={(v) => {
+              setSearch(v);
+              saveSearchPref(v);
+            }}
+          />
+        }
       />
-      <Footnote model={model} />
+      <Footnote model={model} web={search} />
     </>
   );
 }

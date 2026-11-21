@@ -226,7 +226,7 @@ function DayCard({
                       </div>
                       {openTravel === s.id && journeys.has(s.id) && (
                         <div className="mt-3 rounded-lg border border-line bg-sunken/30 p-3 sm:p-4">
-                          <JourneyCard plan={journeys.get(s.id)!} compact />
+                          <JourneyCard plan={journeys.get(s.id)!} compact trip={trip} />
                           {onOpenTravelGuide && (
                             <button type="button" onClick={onOpenTravelGuide} className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-brand hover:underline">
                               Full travel guide with tips <ArrowRight className="h-3.5 w-3.5" />

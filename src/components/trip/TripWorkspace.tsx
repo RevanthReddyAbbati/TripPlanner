@@ -225,7 +225,19 @@ export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnl
         </>
       )}
 
-      {tab === 'travel' && <TravelGuidePanel trip={trip} />}
+      {tab === 'travel' && (
+        <TravelGuidePanel
+          trip={trip}
+          onChangeStart={
+            editable
+              ? (d) => {
+                  actions!.regenerate({ startDate: d });
+                  toast('Trip moved. The plan now follows the real train times.');
+                }
+              : undefined
+          }
+        />
+      )}
 
       {tab === 'budget' && (
         <BudgetPanel

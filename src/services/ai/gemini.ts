@@ -26,11 +26,25 @@ export class AIError extends Error {
   }
 }
 
+export interface WebSource {
+  title: string;
+  url: string;
+}
+
+export interface Grounding {
+  sources: WebSource[];
+  queries: string[];
+}
+
 interface Request {
   system?: string;
   messages: Message[];
-  /** JSON Schema (lowercase types) for structured output. */
+  /** JSON Schema (lowercase types) for structured output. Not combined with `search`. */
   schema?: Record<string, unknown>;
+  /** Let Gemini search Google for current information (Grounding with Google Search). */
+  search?: boolean;
+  /** Receives the web pages and search queries Gemini used, when `search` is on. */
+  onGrounding?: (g: Grounding) => void;
   signal?: AbortSignal;
 }
 
@@ -60,8 +74,40 @@ function body(req: Request, field: SchemaField) {
   return JSON.stringify({
     contents: req.messages,
     ...(req.system ? { systemInstruction: { parts: [{ text: req.system }] } } : {}),
+    ...(req.search ? { tools: [{ google_search: {} }] } : {}),
     ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
   });
+}
+
+/** Web pages and queries behind a grounded answer (candidates[0].groundingMetadata). */
+export function extractGrounding(data: unknown): Grounding {
+  const d = data as {
+    candidates?: { groundingMetadata?: { groundingChunks?: { web?: { uri?: string; title?: string } }[]; webSearchQueries?: string[] } }[];
+  };
+  const meta = d.candidates?.[0]?.groundingMetadata;
+  const sources: WebSource[] = [];
+  const seen = new Set<string>();
+  (meta?.groundingChunks ?? []).forEach((c) => {
+    const url = c.web?.uri;
+    if (!url || seen.has(url) || !/^https:\/\//.test(url)) return;
+    let host = '';
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      return; // malformed URL: skip it rather than failing the whole answer
+    }
+    seen.add(url);
+    sources.push({ url, title: (c.web?.title || host).slice(0, 120) });
+  });
+  return { sources, queries: (meta?.webSearchQueries ?? []).filter((q) => typeof q === 'string').slice(0, 8) };
+}
+
+function mergeGrounding(a: Grounding, b: Grounding): Grounding {
+  const urls = new Set(a.sources.map((s) => s.url));
+  return {
+    sources: [...a.sources, ...b.sources.filter((s) => !urls.has(s.url))],
+    queries: Array.from(new Set([...a.queries, ...b.queries])),
+  };
 }
 
 async function readError(res: Response): Promise<AIError> {
@@ -116,11 +162,24 @@ export async function generate(req: Request): Promise<string> {
         schemaField = next;
         return attempt(next);
       }
+      if (req.search && res.status === 400 && /google_search|search grounding|grounding is not supported/i.test(err.message)) {
+        throw new AIError('This model does not support live web search. Pick a Gemini 2.5 or newer model in Settings.', 'model');
+      }
       throw err;
     }
-    return extractText(await res.json());
+    const data = await res.json();
+    if (req.search) req.onGrounding?.(extractGrounding(data));
+    return extractText(data);
   };
-  return attempt(req.schema ? schemaField : 'none');
+  // Structured output and search tools can't always be combined, so search requests ask for JSON in the prompt instead.
+  return attempt(req.schema && !req.search ? schemaField : 'none');
+}
+
+/** A grounded answer: text plus the web pages Gemini read to write it. */
+export async function generateGrounded(req: Omit<Request, 'search' | 'onGrounding' | 'schema'>): Promise<{ text: string } & Grounding> {
+  let grounding: Grounding = { sources: [], queries: [] };
+  const text = await generate({ ...req, search: true, onGrounding: (g) => (grounding = g) });
+  return { text, ...grounding };
 }
 
 /** Structured generation: parses and returns JSON matching the schema. */
@@ -173,6 +232,7 @@ export async function stream(req: Omit<Request, 'schema'>, onText: (full: string
   const decoder = new TextDecoder();
   let buf = '';
   let full = '';
+  let grounding: Grounding = { sources: [], queries: [] };
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -187,7 +247,9 @@ export async function stream(req: Omit<Request, 'schema'>, onText: (full: string
         .join('');
       if (!data || data === '[DONE]') continue;
       try {
-        full += extractText(JSON.parse(data));
+        const json = JSON.parse(data);
+        full += extractText(json);
+        if (req.search) grounding = mergeGrounding(grounding, extractGrounding(json));
         onText(full);
       } catch (e) {
         if (e instanceof AIError) throw e;
@@ -198,12 +260,15 @@ export async function stream(req: Omit<Request, 'schema'>, onText: (full: string
     // Some servers ignore alt=sse and return a JSON array instead.
     try {
       const arr = JSON.parse(buf) as unknown[];
-      full = (Array.isArray(arr) ? arr : [arr]).map(extractText).join('');
+      const list = Array.isArray(arr) ? arr : [arr];
+      full = list.map(extractText).join('');
+      if (req.search) list.forEach((x) => (grounding = mergeGrounding(grounding, extractGrounding(x))));
       onText(full);
     } catch {
       /* nothing parsable */
     }
   }
+  if (req.search) req.onGrounding?.(grounding);
   return full;
 }
 

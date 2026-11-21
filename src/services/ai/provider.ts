@@ -1,7 +1,7 @@
 // Phase 2: Gemini-powered features. Every feature returns structured data that the deterministic
 // engine validates, times and costs, so the model never invents schedules or prices on its own.
 import type { City, Destination, ExpenseCategory, Interest, PaymentMethod, Place, Trip, TripInput } from '../../types';
-import { generateJSON, stream, fileToInlineData, type Message } from './gemini';
+import { generateJSON, stream, fileToInlineData, type Grounding, type Message } from './gemini';
 import { haversineKm } from '../../lib/geo';
 import { slug } from '../../lib/format';
 import { fmtDay, fmtTime, toISODate } from '../../lib/time';
@@ -89,12 +89,20 @@ Do not invent bookings, expenses or facts about the group that are not in the co
 // ------------------------------------------------------------------------------------------
 // Chat
 
-export async function chat(trip: Trip, history: Message[], onText: (t: string) => void, signal?: AbortSignal): Promise<string> {
+export async function chat(
+  trip: Trip,
+  history: Message[],
+  onText: (t: string) => void,
+  signal?: AbortSignal,
+  opts?: { search?: boolean; onGrounding?: (g: Grounding) => void },
+): Promise<string> {
   return stream(
     {
       system: `${ASSISTANT_SYSTEM}\n\n--- TRIP CONTEXT ---\n${tripContext(trip)}`,
       messages: history,
       signal,
+      search: opts?.search,
+      onGrounding: opts?.onGrounding,
     },
     onText,
   );

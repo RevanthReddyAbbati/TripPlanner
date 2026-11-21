@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
-import { BookOpen, ChevronDown, Compass, ShieldCheck } from 'lucide-react';
+import { BookOpen, CalendarClock, ChevronDown, Compass, Globe, ShieldCheck } from 'lucide-react';
 import clsx from 'clsx';
 import type { Trip } from '../../types';
 import { buildAllJourneys } from '../../engine/journey';
 import { fmtDay, fmtDuration, fmtTime } from '../../lib/time';
 import { Card, Stat, StatGrid } from '../ui/Kit';
 import { JourneyCard, KindIcon } from './JourneyCard';
+import { suggestBetterDates } from '../../engine/dateSmart';
+import { useAIReady } from '../../store/ai';
+import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
 
 const GLOSSARY: [string, string][] = [
   ['PNR', 'The 10-digit number on your train ticket. Use it to check if your seat is confirmed and to find your coach and berth.'],
@@ -21,19 +25,100 @@ const GLOSSARY: [string, string][] = [
 ];
 
 /** Every journey of the trip in order, plus a primer for first-time travellers. */
-export function TravelGuidePanel({ trip }: { trip: Trip }) {
+export function TravelGuidePanel({ trip, onChangeStart }: { trip: Trip; onChangeStart?: (isoDate: string) => void }) {
   const journeys = useMemo(() => buildAllJourneys(trip), [trip]);
   const [openPrimer, setOpenPrimer] = useState(true);
+  const [checkAll, setCheckAll] = useState(0);
+  const [confirmMove, setConfirmMove] = useState(false);
+  const aiReady = useAIReady();
   const withData = journeys.filter((j) => j.hasData).length;
   const totalMin = journeys.reduce((a, j) => a + j.durationMin, 0);
   const totalKm = journeys.reduce((a, j) => a + j.distanceKm, 0);
+  const dates = useMemo(() => suggestBetterDates(trip.input.startDate, journeys), [trip.input.startDate, journeys]);
+  const liveCount = journeys.filter((j) => j.kind !== 'drive' && j.kind !== 'local').length;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-[18px] font-semibold">Travel guide</h2>
-        <p className="text-[13.5px] text-muted">Every journey on this trip, step by step: what to book, where to go, when to board and how to reach your stay.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[18px] font-semibold">Travel guide</h2>
+          <p className="text-[13.5px] text-muted">Every journey on this trip, step by step: what to book, where to go, when to board and how to reach your stay.</p>
+        </div>
+        {aiReady && liveCount > 0 && (
+          <Button icon={<Globe className="h-4 w-4" />} onClick={() => setCheckAll((n) => n + 1)}>
+            Check all {liveCount} journeys live
+          </Button>
+        )}
       </div>
+
+      {dates.best && (
+        <section className="card border-warn/30 p-5">
+          <div className="flex flex-wrap items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warn-soft text-warn">
+              <CalendarClock className="h-[18px] w-[18px]" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[15px] font-semibold">
+                {dates.coveredNow === 0 ? 'No direct train runs on your travel days' : `Only ${dates.coveredNow} of ${dates.total} train journeys have a direct train on your days`}
+              </h3>
+              <p className="mt-0.5 text-[13px] text-ink-2">
+                Starting {Math.abs(dates.best.offset)} day{Math.abs(dates.best.offset) === 1 ? '' : 's'} {dates.best.offset < 0 ? 'earlier' : 'later'}, on{' '}
+                <strong>{new Date(dates.best.startDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</strong>, gives{' '}
+                {dates.best.covered === dates.best.total ? 'every train journey' : `${dates.best.covered} of ${dates.best.total} train journeys`} a direct train:
+              </p>
+              <ul className="mt-2 space-y-1 text-[12.5px] text-ink-2">
+                {dates.best.matches.map((m) => (
+                  <li key={m.legId} className="flex flex-wrap gap-x-2">
+                    <span className="text-muted">{m.title}:</span>
+                    {m.train ? (
+                      <span className="font-medium">
+                        {m.train.number} {m.train.name}
+                      </span>
+                    ) : (
+                      <span className="text-warn">still no direct train</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {onChangeStart && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" icon={<CalendarClock className="h-3.5 w-3.5" />} onClick={() => setConfirmMove(true)}>
+                    Move trip to {new Date(dates.best.startDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {dates.best && onChangeStart && (
+        <Modal
+          open={confirmMove}
+          onClose={() => setConfirmMove(false)}
+          title="Move the trip dates?"
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setConfirmMove(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  onChangeStart(dates.best!.startDate);
+                  setConfirmMove(false);
+                }}
+              >
+                Move and rebuild
+              </Button>
+            </>
+          }
+        >
+          <p className="text-[14px]">
+            The trip will start on {new Date(dates.best.startDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} and the plan is rebuilt around the real train times. Expenses, bookings, notes and checklist ticks are kept; manual itinerary edits are replaced.
+          </p>
+        </Modal>
+      )}
 
       <StatGrid cols={4}>
         <Stat label="Journeys" value={journeys.length} sub={`${withData} with checked train or bus details`} />
@@ -103,7 +188,7 @@ export function TravelGuidePanel({ trip }: { trip: Trip }) {
       <div className="space-y-6">
         {journeys.map((j, i) => (
           <div key={j.legId} id={`journey-${j.legId}`} className="scroll-mt-20">
-            <JourneyCard plan={j} index={i} />
+            <JourneyCard plan={j} index={i} trip={trip} autoRun={checkAll} />
           </div>
         ))}
       </div>
