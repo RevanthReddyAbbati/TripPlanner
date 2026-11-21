@@ -21,6 +21,7 @@ import { inr, plural } from '../lib/format';
 import { fmtDate, fmtDuration, nextSaturday } from '../lib/time';
 import { MODES } from '../engine/rates';
 import { AiDescribeTrip, type DescribeResult } from '../components/ai/AiDescribeTrip';
+import { WizardNearby } from '../components/nearby/WizardNearby';
 
 const STEPS = ['Where', 'When and who', 'How you travel', 'Review'] as const;
 
@@ -482,6 +483,28 @@ export default function NewTrip() {
                   {w}
                 </p>
               ))}
+              <WizardNearby
+                input={input}
+                onAddDestination={(d, extraDays) => {
+                  // Insert after the nearest chosen destination, keeping the route order sensible.
+                  setInput((s) => {
+                    if (s.destinations.some((x) => x.id === d.id)) return s;
+                    let at = s.destinations.length;
+                    let best = Infinity;
+                    s.destinations.forEach((x, i) => {
+                      const km = Math.hypot(x.lat - d.lat, x.lon - d.lon);
+                      if (km < best) {
+                        best = km;
+                        at = i + 1;
+                      }
+                    });
+                    const destinations = [...s.destinations];
+                    destinations.splice(at, 0, d);
+                    return { ...s, destinations, days: Math.min(30, s.days + extraDays) };
+                  });
+                  toast(`Added ${d.name} to the route and ${extraDays} day${extraDays > 1 ? 's' : ''} to the trip.`);
+                }}
+              />
             </div>
           )}
 

@@ -9,6 +9,7 @@ import { summarize, CATEGORY } from '../../engine/expenses';
 import { computeBudget } from '../../engine/budget';
 import { modeLabel } from '../../engine/transport';
 import type { EditOp } from '../../engine/aiEdits';
+import { buildAllJourneys } from '../../engine/journey';
 
 const INTERESTS: Interest[] = ['beaches', 'history', 'nature', 'nightlife', 'spiritual', 'adventure', 'food', 'shopping', 'culture'];
 const CATEGORIES: ExpenseCategory[] = ['transport', 'stay', 'food', 'local', 'activities', 'shopping', 'other'];
@@ -47,6 +48,22 @@ export function tripContext(trip: Trip): string {
       lines.push(`  - ${fmtTime(st.start)} ${st.kind}: ${st.title}${cost}`);
     });
   });
+  // Verified transport options per journey, so the assistant names real trains and buses.
+  const journeys = buildAllJourneys(trip);
+  if (journeys.length) {
+    lines.push('');
+    lines.push('Journeys (verified services from the transport database; say timetables should be confirmed on IRCTC/redBus):');
+    journeys.forEach((j) => {
+      const top = j.options.slice(0, 3).map((o) => {
+        const id = o.number ? `${o.number} ${o.name}` : o.name;
+        const when = o.departs ? ` dep ${o.departs} ${o.fromLabel}, arr ${o.arrives}${o.arrivalDayOffset ? ` (+${o.arrivalDayOffset})` : ''} ${o.toLabel}` : '';
+        const days = o.runsOnText ? `, runs ${o.runsOnText}` : '';
+        const warn = o.runsOnTravelDay === false ? ' [does NOT run on the travel day]' : '';
+        return `${o.kind}: ${id}${when}${days}${warn}`;
+      });
+      lines.push(`- ${j.title} on ${j.date} by ${j.modeLabel}: ${top.length ? top.join('; ') : 'no verified services on file'}${j.advice ? `. Advice: ${j.advice}` : ''}`);
+    });
+  }
   const unscheduled = i.destinations.flatMap((d) => (trip.unscheduled[d.id] ?? []).map((pid) => d.places.find((p) => p.id === pid)?.name).filter(Boolean));
   if (unscheduled.length) lines.push(`Known places not in the plan: ${unscheduled.slice(0, 30).join(', ')}`);
   if (trip.bookings.length) {
@@ -64,6 +81,8 @@ export function tripContext(trip: Trip): string {
 const ASSISTANT_SYSTEM = `You are Itinera's trip assistant for travellers in India. You help a group plan and run a trip.
 Answer using the trip context provided. Be concise and practical: short paragraphs or bullet lists, amounts in INR with the ₹ sign.
 If you suggest places, give real places near the destination with typical hours and prices, and say when something should be checked locally.
+When asked about trains, buses or flights, use only the services listed under "Journeys" in the context (with their numbers and timings). If none are listed, say so and point to IRCTC, erail.in or redBus; never invent a train number.
+Many users have never travelled before: explain steps simply (where to board, what to carry, how long it takes, how to reach the hotel) when it helps.
 Never claim you changed the itinerary; changes happen only when the user uses "Change the plan".
 Do not invent bookings, expenses or facts about the group that are not in the context.`;
 

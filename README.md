@@ -19,6 +19,8 @@ Plan multi-stop trips for a group: choose where you start, the destinations in o
 - **Trip overview**: live / upcoming / completed status, today's plan, route timeline, budget health, weather forecast per destination (Open-Meteo), recent expenses.
 - **Workspace dashboards**: Home (live or next trip, needs-attention list), Trips (table or cards), a cross-trip Expenses ledger with CSV export, and Reports (by category, trip, traveller and month).
 - **Command palette**: `Ctrl+K` / `Cmd+K` to jump to any trip, page or destination, or add an expense.
+- **Travel guide for first-time travellers**: every journey gets real services with numbers (for example *16595 Panchaganga Express, KSR Bengaluru SBC 18:50 → Gokarna Road GOK 06:57*), bus operators with boarding and drop points, and flights. It then walks through each step: how to book (IRCTC / redBus), when to reach which station, boarding, the overnight part, getting off, and the last mile to your stay with taxi or auto prices. Includes a glossary (PNR, RAC/WL, Tatkal, berths, classes, m-ticket, prepaid taxi), helplines, and live links (erail, IRCTC, NTES, redBus, Google Flights) to confirm today's timetable. When a verified train runs on the travel day, the itinerary uses its real departure and duration.
+- **Nearby you could explore**: curated day trips near each destination (Murudeshwar and Jog Falls from Gokarna, Dudhsagar from Goa, Badami from Hampi…), nearby destinations worth adding to the route, and must-sees that didn't fit, ranked by interests, season, distance and budget. Add one to a day or to the route in one click.
 - **Checklist** generated from the plan (tickets per leg, stays, documents, money, packing), plus your own items.
 - **Sharing and export**: view-only share links (the whole trip is compressed into the link, so nothing is uploaded; expenses and bookings are left out unless you include them), calendar `.ics`, JSON export and import, print or save as PDF.
 - **Workspace**: dashboard with search and filters, trip status (draft, planned, booked, completed), duplicate, backup and restore, default preferences, light and dark themes, and phone layouts.
@@ -84,6 +86,12 @@ src/
   components/      UI kit, layout, map, trip workspace panels
   pages/           Landing, Dashboard, NewTrip, TripView, Explore, Settings, SharedTrip
 ```
+
+## Transport data
+
+`src/data/transport/` holds researched, sourced data: departure hubs for 20 cities (stations with codes, bus points, airports), arrival and last-mile info for all 14 destinations, and 140 one-way routes with 195 train entries, bus operators and flights. Every train and bus record carries the URL it was checked against (erail, confirmtkt, ixigo, AbhiBus, easemytrip), checked in Nov 2026. `transport.test.ts` enforces well-formed train numbers, timetables consistent with durations, sources on every record, and that advice only names trains that exist in the data.
+
+Timetables change, so the app always shows a "check live" link and never presents its data as a booking. To update a route, edit the regional file and keep the `source` URL current.
 
 ## Notes on the free map services
 

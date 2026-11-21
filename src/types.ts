@@ -129,10 +129,16 @@ export interface DayPlan {
   night: { type: 'stay'; destinationId: string } | { type: 'transit' } | { type: 'home' };
 }
 
+/** What a leg end refers to: the trip's origin city (by name) or a destination (by id). */
+export interface PlaceRef {
+  kind: 'city' | 'destination';
+  id: string;
+}
+
 export interface Leg {
   id: string;
-  from: { name: string } & GeoPoint;
-  to: { name: string } & GeoPoint;
+  from: { name: string; ref?: PlaceRef } & GeoPoint;
+  to: { name: string; ref?: PlaceRef } & GeoPoint;
   mode: TransportMode | LocalTransport;
   distanceKm: number;
   durationMin: number;

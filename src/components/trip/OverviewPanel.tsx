@@ -1,4 +1,5 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { NearbySuggestions } from '../nearby/NearbySuggestions';
 import {
   AlertTriangle, ArrowRight, BedDouble, BusFront, CalendarClock, Car, Clock, Flag, MapPin, Plane, Plus, TrainFront, Wallet,
 } from 'lucide-react';
@@ -18,7 +19,7 @@ import { bookingSuggestions } from '../bookings/suggest';
 import { dayColor } from '../map/colors';
 
 export function OverviewPanel({
-  trip, readOnly, onNavigate,
+  trip, readOnly, actions, onNavigate,
 }: {
   trip: Trip;
   readOnly?: boolean;
@@ -26,6 +27,7 @@ export function OverviewPanel({
   onNavigate: (tab: WorkspaceTab, extra?: Record<string, string>) => void;
 }) {
   const phase = tripPhase(trip);
+  const [showAllNearby, setShowAllNearby] = useState(false);
   const s = useMemo(() => summarize(trip), [trip]);
   const budget = useMemo(() => computeBudget(trip), [trip]);
   const suggestions = useMemo(() => bookingSuggestions(trip), [trip]);
@@ -274,6 +276,13 @@ export function OverviewPanel({
           </Card>
         </div>
       </div>
+
+      <NearbySuggestions
+        trip={trip}
+        actions={readOnly ? undefined : actions}
+        limit={showAllNearby ? undefined : 4}
+        onShowAll={() => setShowAllNearby(true)}
+      />
     </div>
   );
 }

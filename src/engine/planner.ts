@@ -1,6 +1,6 @@
 // Rule-based trip planner (phase 1). Deterministic: the same input always yields the same plan.
 // Gemini (services/ai) can propose places and edits; this engine still does all timing and costing.
-import type { DayPlan, Destination, GeoPoint, Leg, Place, Stop, Trip, TripInput } from '../types';
+import type { DayPlan, Destination, GeoPoint, Leg, Place, PlaceRef, Stop, TransportMode, Trip, TripInput } from '../types';
 import { centroid, haversineKm, roadKm, transferMinutes } from '../lib/geo';
 import { addDays, fmtDuration, monthOf, toMin } from '../lib/time';
 import { uid } from '../lib/format';
@@ -10,6 +10,8 @@ import {
 import { estimateHop, estimateLeg, HOP_THRESHOLD_KM, modeLabel } from './transport';
 import { buildChecklist } from './checklist';
 import { syncTravelers, travelersInUse } from './people';
+import { corridor } from '../data/transport';
+import type { Weekday } from '../data/transport/types';
 
 interface Window {
   dest: Destination;
@@ -57,16 +59,22 @@ export function generateTrip(
   // ---- 1. Outbound and return legs -------------------------------------------------------
   const first = dests[0];
   const last = dests[dests.length - 1];
-  const out = estimateLeg(input.origin, first, input.transport, n);
+  let out = estimateLeg(input.origin, first, input.transport, n);
   const outInfo = MODES[input.transport];
   const outOvernight =
     input.overnightTravel && outInfo.overnightCapable && D >= 2 && out.durationMin >= OVERNIGHT_MIN_HOURS * 60;
   let outDepart: number;
   if (outOvernight) outDepart = out.durationMin > 16 * 60 ? 12 * 60 : OVERNIGHT_DEPART;
   else outDepart = input.transport === 'flight' ? 6 * 60 + 30 : 6 * 60;
+  // Use a real train's timetable when one runs that day, so the plan matches the ticket.
+  const outTrain = realTrain(input.origin.name, first.id, input.transport, input.startDate, outDepart);
+  if (outTrain) {
+    outDepart = outTrain.departMin;
+    out = { ...out, durationMin: outTrain.durationMin };
+  }
   const outArrive = outDepart + out.durationMin;
 
-  const ret = estimateLeg(last, input.origin, input.returnTransport, n);
+  let ret = estimateLeg(last, input.origin, input.returnTransport, n);
   const retInfo = MODES[input.returnTransport];
   const retOvernight =
     input.overnightTravel && retInfo.overnightCapable && D >= 2 && ret.durationMin >= OVERNIGHT_MIN_HOURS * 60;
@@ -77,6 +85,22 @@ export function generateTrip(
     if (retDepart + ret.durationMin > latestArrival) retDepart = latestArrival - ret.durationMin;
   } else {
     retDepart = (D - 1) * 1440 + 21 * 60 + 30 - ret.durationMin;
+  }
+  // Snap the return to a real train that gets home before the trip ends (same day or the day before).
+  {
+    const planned = retDepart;
+    const day = Math.max(0, Math.floor(planned / 1440));
+    for (const d of [day, day - 1]) {
+      if (d < 0) continue;
+      const t = realTrain(last.id, input.origin.name, input.returnTransport, addDays(input.startDate, d), planned - d * 1440);
+      if (!t) continue;
+      const depart = d * 1440 + t.departMin;
+      if (depart + t.durationMin <= D * 1440 && depart > outArrive + 6 * 60) {
+        retDepart = depart;
+        ret = { ...ret, durationMin: t.durationMin };
+        break;
+      }
+    }
   }
 
   // ---- 2. Hops between destinations ------------------------------------------------------
@@ -277,6 +301,26 @@ export function generateTrip(
 
 // ---------------------------------------------------------------------------------------------
 
+const WEEKDAY: Weekday[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * The verified train closest to the planned departure that runs on `date` in the chosen class.
+ * Returns minutes from midnight and the real duration, or null when there is none on file.
+ */
+function realTrain(from: string, to: string, mode: TransportMode, date: string, preferMin: number): { departMin: number; durationMin: number } | null {
+  if (mode !== 'train_sl' && mode !== 'train_3a') return null;
+  const cls = mode === 'train_sl' ? 'SL' : '3A';
+  const weekday = WEEKDAY[new Date(date + 'T00:00:00').getDay()];
+  const trains = (corridor(from, to)?.trains ?? []).filter(
+    (t) => t.classes.includes(cls) && (t.runsOn === 'daily' || t.runsOn.includes(weekday)),
+  );
+  if (!trains.length) return null;
+  const best = trains
+    .map((t) => ({ t, gap: Math.abs(toMin(t.departs) - preferMin) }))
+    .sort((a, b) => a.gap - b.gap)[0].t;
+  return { departMin: toMin(best.departs), durationMin: best.durationMin };
+}
+
 function destWeight(d: Destination, input: TripInput): number {
   if (!d.places.length) return 3;
   const scores = d.places.map((p) => scorePlace(p, input)).sort((a, b) => b - a).slice(0, 10);
@@ -292,10 +336,13 @@ function makeLeg(
   fromName: string, from: GeoPoint, toName: string, to: GeoPoint,
   mode: Leg['mode'], est: { distanceKm: number; durationMin: number; cost: number }, overnight: boolean, departAbs: number,
 ): Leg {
+  // Destinations carry an id and places; anything else is the origin city.
+  const ref = (p: GeoPoint, name: string): PlaceRef =>
+    'places' in p && 'id' in p ? { kind: 'destination', id: (p as Destination).id } : { kind: 'city', id: name };
   return {
     id: uid('leg_'),
-    from: { name: fromName, lat: from.lat, lon: from.lon },
-    to: { name: toName, lat: to.lat, lon: to.lon },
+    from: { name: fromName, lat: from.lat, lon: from.lon, ref: ref(from, fromName) },
+    to: { name: toName, lat: to.lat, lon: to.lon, ref: ref(to, toName) },
     mode,
     distanceKm: est.distanceKm,
     durationMin: est.durationMin,

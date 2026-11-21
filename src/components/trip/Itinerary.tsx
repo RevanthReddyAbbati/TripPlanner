@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, BedDouble, BusFront, Car, Coffee, Home, LogOut, MapPin, Moon, Plane, Plus, ReceiptIndianRupee, Star,
+  AlertTriangle, ArrowDown, ArrowUp, ArrowRight, BedDouble, ChevronDown, BusFront, Car, Coffee, Home, LogOut, MapPin, Moon, Plane, Plus, ReceiptIndianRupee, Star,
   TrainFront, Trash2, UtensilsCrossed, Bike,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -12,6 +12,8 @@ import { conflicts, moveStop, removeStop } from '../../engine/edit';
 import { dayColor } from '../map/colors';
 import { Badge } from '../ui/Fields';
 import { IconButton } from '../ui/Button';
+import { buildJourney, legForStop } from '../../engine/journey';
+import { JourneyCard } from '../journey/JourneyCard';
 
 interface Props {
   trip: Trip;
@@ -24,6 +26,8 @@ interface Props {
   onAddPlace?: (dayIndex: number) => void;
   /** Log an expense against a stop (prefilled from its cost). */
   onLogExpense?: (dayIndex: number, stop: Stop) => void;
+  /** Open the trip's full travel guide tab. */
+  onOpenTravelGuide?: () => void;
 }
 
 export function DayTabs({ trip, day, onDay }: Pick<Props, 'trip' | 'day' | 'onDay'>) {
@@ -55,7 +59,7 @@ function TabBtn({ on, onClick, color, title, sub }: { on: boolean; onClick: () =
   );
 }
 
-export function Itinerary({ trip, day, activeStopId, onActivate, readOnly, onChangeDay, onAddPlace, onLogExpense }: Props) {
+export function Itinerary({ trip, day, activeStopId, onActivate, readOnly, onChangeDay, onAddPlace, onLogExpense, onOpenTravelGuide }: Props) {
   const places = useMemo(() => {
     const m = new Map<string, Place>();
     trip.input.destinations.forEach((d) => d.places.forEach((p) => m.set(p.id, p)));
@@ -76,6 +80,7 @@ export function Itinerary({ trip, day, activeStopId, onActivate, readOnly, onCha
           onChange={onChangeDay}
           onAddPlace={onAddPlace}
           onLogExpense={onLogExpense}
+          onOpenTravelGuide={onOpenTravelGuide}
         />
       ))}
     </div>
@@ -83,12 +88,24 @@ export function Itinerary({ trip, day, activeStopId, onActivate, readOnly, onCha
 }
 
 function DayCard({
-  trip, day, places, activeStopId, onActivate, readOnly, onChange, onAddPlace, onLogExpense,
+  trip, day, places, activeStopId, onActivate, readOnly, onChange, onAddPlace, onLogExpense, onOpenTravelGuide,
 }: {
   trip: Trip; day: DayPlan; places: Map<string, Place>; activeStopId?: string; onActivate: Props['onActivate'];
   readOnly?: boolean; onChange?: (d: DayPlan) => void; onAddPlace?: (i: number) => void; onLogExpense?: Props['onLogExpense'];
+  onOpenTravelGuide?: () => void;
 }) {
   const bad = conflicts(day, places);
+  const [openTravel, setOpenTravel] = useState<string | null>(null);
+  // Journeys for this day's travel stops (cheap to build; data lookups only).
+  const journeys = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof buildJourney>>();
+    day.stops.forEach((s) => {
+      if (s.kind !== 'travel') return;
+      const leg = legForStop(trip, day.index, s.start);
+      if (leg) m.set(s.id, buildJourney(trip, leg));
+    });
+    return m;
+  }, [trip, day]);
   const logged = new Map<string, number>();
   (trip.expenses ?? []).forEach((e) => e.stopId && logged.set(e.stopId, (logged.get(e.stopId) ?? 0) + e.amount));
   const daySpent = (trip.expenses ?? []).filter((e) => e.date === day.date).reduce((a, e) => a + e.amount, 0);
@@ -192,7 +209,31 @@ function DayCard({
                             </button>
                           )
                         )}
+                        {journeys.has(s.id) && (
+                          <button
+                            type="button"
+                            aria-expanded={openTravel === s.id}
+                            onClick={() => setOpenTravel((v) => (v === s.id ? null : s.id))}
+                            className="inline-flex items-center gap-1 font-medium text-brand hover:underline"
+                          >
+                            <ChevronDown className={clsx('h-3.5 w-3.5 transition-transform', openTravel === s.id && 'rotate-180')} />
+                            How to get there
+                            {journeys.get(s.id)!.options[0]?.number && (
+                              <span className="ml-1 rounded bg-ink px-1 font-mono text-[11px] font-semibold text-bg">{journeys.get(s.id)!.options[0].number}</span>
+                            )}
+                          </button>
+                        )}
                       </div>
+                      {openTravel === s.id && journeys.has(s.id) && (
+                        <div className="mt-3 rounded-lg border border-line bg-sunken/30 p-3 sm:p-4">
+                          <JourneyCard plan={journeys.get(s.id)!} compact />
+                          {onOpenTravelGuide && (
+                            <button type="button" onClick={onOpenTravelGuide} className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-brand hover:underline">
+                              Full travel guide with tips <ArrowRight className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {!readOnly && onChange && !s.fixed && (
                       <div className="flex shrink-0 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">

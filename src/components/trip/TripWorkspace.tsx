@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle, CalendarDays, CheckSquare, LayoutDashboard, Map as MapIcon, NotebookPen, ReceiptIndianRupee, Settings2, Sparkles, Ticket, Wallet,
+  AlertTriangle, CalendarDays, CheckSquare, LayoutDashboard, Map as MapIcon, NotebookPen, ReceiptIndianRupee, Settings2, Sparkles, Ticket, TrainFront, Wallet,
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { Booking, DayPlan, Expense, Place, Traveler, Trip, TripInput } from '../../types';
@@ -17,6 +17,7 @@ import { OverviewPanel } from './OverviewPanel';
 import { ExpensesPanel } from './ExpensesPanel';
 import { BookingsPanel } from './BookingsPanel';
 import { AssistantPanel } from './AssistantPanel';
+import { TravelGuidePanel } from '../journey/TravelGuidePanel';
 import { Spinner } from '../ui/Spinner';
 import { Tabs } from '../ui/Kit';
 import type { MapAddRequest } from '../map/TripMap';
@@ -47,8 +48,8 @@ export interface WorkspaceActions {
   removeBooking: (bookingId: string) => void;
 }
 
-export type WorkspaceTab = 'overview' | 'assistant' | 'plan' | 'map' | 'budget' | 'expenses' | 'bookings' | 'checklist' | 'notes' | 'settings';
-const TABS: WorkspaceTab[] = ['overview', 'assistant', 'plan', 'map', 'budget', 'expenses', 'bookings', 'checklist', 'notes', 'settings'];
+export type WorkspaceTab = 'overview' | 'assistant' | 'plan' | 'travel' | 'map' | 'budget' | 'expenses' | 'bookings' | 'checklist' | 'notes' | 'settings';
+const TABS: WorkspaceTab[] = ['overview', 'assistant', 'plan', 'travel', 'map', 'budget', 'expenses', 'bookings', 'checklist', 'notes', 'settings'];
 
 export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnly?: boolean; actions?: WorkspaceActions }) {
   const [params, setParams] = useSearchParams();
@@ -154,6 +155,7 @@ export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnl
           { value: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
           ...(editable ? [{ value: 'assistant' as const, label: 'Assistant', icon: <Sparkles className="h-4 w-4 text-accent" /> }] : []),
           { value: 'plan', label: 'Itinerary', icon: <CalendarDays className="h-4 w-4" /> },
+          { value: 'travel', label: 'Travel guide', icon: <TrainFront className="h-4 w-4" /> },
           { value: 'map', label: 'Map', icon: <MapIcon className="h-4 w-4" />, className: 'xl:hidden' },
           { value: 'budget', label: 'Budget', icon: <Wallet className="h-4 w-4" /> },
           { value: 'expenses', label: 'Expenses', icon: <ReceiptIndianRupee className="h-4 w-4" />, count: trip.expenses.length },
@@ -192,6 +194,7 @@ export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnl
                   readOnly={!editable}
                   onChangeDay={actions?.setDay}
                   onAddPlace={editable ? (i) => setAddingTo(i) : undefined}
+                  onOpenTravelGuide={() => setTab('travel')}
                   onLogExpense={
                     editable
                       ? (dayIndex, stop) =>
@@ -221,6 +224,8 @@ export function TripWorkspace({ trip, readOnly, actions }: { trip: Trip; readOnl
           </div>
         </>
       )}
+
+      {tab === 'travel' && <TravelGuidePanel trip={trip} />}
 
       {tab === 'budget' && (
         <BudgetPanel

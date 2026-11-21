@@ -130,3 +130,24 @@ describe('editing', () => {
     expect(next.stops.some((s) => s.title === 'Shopping')).toBe(true);
   });
 });
+
+describe('real train timetables', () => {
+  it('times the outbound leg by a verified train when one runs that day', async () => {
+    const { corridor } = await import('../data/transport');
+    const t = corridor('Bengaluru', 'gokarna')?.trains.find((x) => x.number === '16595');
+    if (!t) return; // data not present in this checkout
+    const trip = generateTrip(
+      goaTrip({
+        origin: ORIGIN_CITIES.find((c) => c.name === 'Bengaluru')!,
+        destinations: [findDestination('gokarna')!],
+        days: 4,
+        transport: 'train_sl',
+        returnTransport: 'train_sl',
+      }),
+    );
+    const out = trip.legs[0];
+    const [h, m] = t.departs.split(':').map(Number);
+    expect(out.departAbs).toBe(h * 60 + m);
+    expect(out.durationMin).toBe(t.durationMin);
+  });
+});

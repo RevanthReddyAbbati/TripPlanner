@@ -3,6 +3,7 @@ import { fmtDay, fmtTime } from '../lib/time';
 import { slug } from '../lib/format';
 import { LOCAL, MODES } from './rates';
 import { modeLabel } from './transport';
+import { buildJourney } from './journey';
 
 /** "AC sleeper bus" stays as is; "Train, sleeper class" becomes "train, sleeper class". */
 function lowerFirst(s: string): string {
@@ -28,10 +29,18 @@ export function buildChecklist(trip: Trip): ChecklistItem[] {
       add(`Service the ${l.mode === 'bike' ? 'bikes' : 'car'} before the drive to ${l.to.name}`, 'booking');
       return;
     }
+    // Name the actual service when the transport database has one (title stays stable so ticks carry over).
+    const plan = buildJourney(trip, l);
+    const top = plan.options.find((o) => o.recommended) ?? plan.options[0];
+    const suggestion = top
+      ? top.number
+        ? ` Suggested: ${top.number} ${top.name}${top.departs ? `, ${top.fromLabel} ${top.departs} to ${top.toLabel} ${top.arrives}${top.arrivalDayOffset ? ' next day' : ''}` : ''}${top.runsOnTravelDay === false ? ' (check: may not run that day)' : ''}.`
+        : ` Suggested: ${top.name}.`
+      : '';
     add(
       `Book ${lowerFirst(info.label)}: ${l.from.name} to ${l.to.name}`,
       'booking',
-      `${date ? fmtDay(date) + ', ' : ''}leaving around ${fmtTime(l.departAbs - dayIdx * 1440, false)}. ${info.bookingHint}.`,
+      `${date ? fmtDay(date) + ', ' : ''}leaving around ${fmtTime(l.departAbs - dayIdx * 1440, false)}.${suggestion} ${info.bookingHint}.`,
     );
   });
 
